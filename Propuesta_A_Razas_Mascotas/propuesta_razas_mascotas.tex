@@ -47,8 +47,9 @@ comprime y se codifica en un circuito variacional con \emph{data re-uploading}. 
 caben en la lectura de 4 qubits, se propone una arquitectura \textbf{jerárquica} (especie $\to$ raza)
 y se compara contra un circuito plano de 6 qubits y contra modelos clásicos de capacidad similar.
 El problema supera en número de clases, similitud entre clases y escasez de ejemplos por clase al
-de la Opción 1 (7 variedades de frijol), y no ha sido abordado, hasta donde encontramos, con
-aprendizaje automático cuántico.
+de la Opción 1 (7 variedades de frijol). El único trabajo cuántico que encontramos con este conjunto
+usa solo un subconjunto de 4 razas; hasta donde sabemos, la clasificación de las 37 razas no ha sido
+abordada con aprendizaje automático cuántico.
 \end{abstract}
 
 \tableofcontents
@@ -68,7 +69,17 @@ Esta propuesta atiende ambos puntos:
 \item \textbf{Novedad.} El artículo citado estudia cuatro problemas \emph{binarios} con un circuito de
 12 parámetros entrenado con SPSA. Aquí el problema es de \textbf{37 clases}, la lectura multiclase
 del circuito es en sí misma un reto de diseño, y se propone y evalúa una descomposición jerárquica
-del circuito. No encontramos trabajos de clasificación cuántica sobre las razas de Oxford-IIIT Pet.
+del circuito.
+\item \textbf{Trabajo relacionado con el mismo conjunto.} Yamaoka, Chan y Mitarai \cite{yamaoka2026}
+comparan clasificadores variacionales cuánticos (4 y 7 qubits) con clasificadores clásicos sobre
+características de extractores congelados (DINOv2, CLIP, ResNet-50, entre otros) en diez conjuntos de
+imágenes, uno de ellos Oxford-IIIT Pet. Por el costo de simulación usan \textbf{solo las primeras
+cuatro clases} de cada conjunto, y su objetivo es teórico: estudiar qué geometría de las
+características favorece al clasificador cuántico. Entre sus limitaciones señalan que falta validar
+con más qubits, \emph{más clases} y conjuntos completos. Esta propuesta va justamente en esa
+dirección: usa las \textbf{37 razas completas}, plantea una arquitectura jerárquica (especie
+$\to$ raza) que ese trabajo no explora y se orienta a un problema aplicado. No encontramos trabajos
+de clasificación cuántica sobre las 37 razas.
 \item \textbf{Complejidad.} La tabla~\ref{tab:complejidad} compara el problema con la Opción~1.
 \end{itemize}
 
@@ -383,6 +394,9 @@ Dogs}. IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2012.
 F.\ Martínez-Álvarez. \emph{Hybrid Classical-Quantum Transfer Learning with Noisy Quantum Circuits}.
 Computer Modeling in Engineering \& Sciences, 148(1), 2026.
 \url{https://www.techscience.com/CMES/v148n1/68192/html}.
+\bibitem{yamaoka2026} Y.\ Yamaoka, W.\ I.\ Chan y K.\ Mitarai. \emph{Representation Geometry and
+Inductive Biases in Quantum Classifiers across Classical Visual Benchmarks}. arXiv:2610.17722, 2026.
+\url{https://arxiv.org/abs/2610.17722}.
 \bibitem{perez2020} A.\ Pérez-Salinas, A.\ Cervera-Lierta, E.\ Gil-Fuster y J.\ I.\ Latorre.
 \emph{Data re-uploading for a universal quantum classifier}. Quantum, 4:226, 2020.
 \bibitem{schuld2021} M.\ Schuld, R.\ Sweke y J.\ J.\ Meyer. \emph{Effect of data encoding on the
