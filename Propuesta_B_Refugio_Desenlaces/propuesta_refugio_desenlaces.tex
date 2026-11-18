@@ -1,0 +1,376 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,array}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+\usepackage{quantikz}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+\providecommand{\ket}[1]{\left|#1\right\rangle}
+\providecommand{\bra}[1]{\left\langle#1\right|}
+\providecommand{\braket}[2]{\left\langle#1\middle|#2\right\rangle}
+\newcommand{\R}{\mathbb{R}}
+
+\title{\textbf{Propuesta de proyecto final:}\\[2pt]
+Predicción del desenlace de perros y gatos en un refugio desde su ingreso con un clasificador cuántico de \emph{data re-uploading}}
+\author{%
+\begin{tabular}{ll}
+\toprule
+Integrante & No.\ de cuenta \\ \midrule
+Rojas Chimal Karla Beatriz & 320048025 \\
+Calderón Gutiérrez Victor Emiliano & 423097331 \\
+\bottomrule
+\end{tabular}\\[10pt]
+Computación Cuántica -- Proyecto Final\\
+Prof.\ Naomi Itzel Reyes Granados \;\;|\;\; Ayud.\ Sebastián González Juárez}
+\date{Entrega: 7 de diciembre de 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent Se propone predecir, \textbf{en el momento en que un perro o un gato ingresa a un refugio},
+cuál será su desenlace entre cinco clases: adopción, transferencia a otra organización, devolución a
+su dueño, eutanasia o muerte. Se usan los registros públicos de ingresos y egresos del
+\emph{Austin Animal Center} (Texas), con más de 160\,000 estancias de perros y gatos entre 2013 y 2025.
+El problema es multiclase, \textbf{fuertemente desbalanceado} (la clase más rara representa
+$\approx$1\,\%), con variables categóricas de alta cardinalidad (más de mil razas y cientos de colores),
+requiere unir dos tablas por animal y fecha, y se evalúa con una \textbf{partición temporal} (entrenar
+con años anteriores y probar con los más recientes). Se compara un circuito variacional con
+\emph{data re-uploading} contra modelos clásicos de capacidad similar. No encontramos trabajos de
+aprendizaje automático cuántico sobre este problema.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+%=====================================================================
+\section{Motivación del cambio y justificación de la complejidad}
+%=====================================================================
+La propuesta anterior (perros \emph{vs.}\ gatos) era binaria y ya había sido resuelta con un enfoque
+casi idéntico en \cite{martin2026}. Esta propuesta conserva el contexto de los refugios, pero cambia
+a un problema \textbf{multiclase} sobre \textbf{datos tabulares heterogéneos}, distinto del caso de
+imágenes. Tiene menos clases que la Opción 1 (5 frente a 7), pero es más difícil en casi todas las
+demás dimensiones, como resume la tabla~\ref{tab:complejidad}.
+
+\begin{table}[H]
+\centering\small
+\caption{Comparación de complejidad con la propuesta de clase (Opción 1).}
+\label{tab:complejidad}
+\begin{tabular}{@{}p{4.6cm}p{4.4cm}p{5.8cm}@{}}
+\toprule
+Aspecto & Opción 1: Dry Bean & Esta propuesta: refugio de Austin \\ \midrule
+Número de clases & 7 & 5 \\
+Desbalance (clase mayor / menor) & $\approx 6.8:1$ & $\approx \mathbf{50:1}$ \\
+Tamaño & 13\,611 granos & $\approx$160\,000 estancias \\
+Tipo de variables & 16 numéricas, ya limpias & mixtas: categóricas de alta cardinalidad
+(razas, colores, tipo y condición de ingreso), numéricas (edad) y temporales \\
+Preparación de datos & ninguna & unir ingresos y egresos por animal y fecha; animales con varias
+estancias; limpieza de edades y razas \\
+Riesgo de fuga & bajo & alto: variables que solo existen al egreso (estado reproductivo tras
+esterilización, duración de la estancia) deben excluirse \\
+Partición & aleatoria estratificada & \textbf{temporal}, con cambio de distribución entre años
+(p.\ ej.\ pandemia 2020) \\
+Codificación cuántica & valores continuos directos & primero hay que convertir categorías en
+valores numéricos sin fuga \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=====================================================================
+\section{Narrativa y problema real}
+%=====================================================================
+Los refugios municipales operan con espacio, personal y presupuesto limitados. Cuando un animal
+ingresa, el personal decide qué recursos dedicarle: promoción para adopción, búsqueda activa del
+dueño, contacto con organizaciones de rescate o atención médica prioritaria. Saber desde el ingreso
+qué animales tienen mayor riesgo de un desenlace negativo (eutanasia o muerte) permite intervenir a
+tiempo, por ejemplo con hogares temporales, campañas dirigidas o atención veterinaria temprana.
+
+El sistema propuesto es una \textbf{herramienta de apoyo}, no de decisión: su objetivo es priorizar
+ayuda, nunca justificar una eutanasia. Por eso la métrica principal no es la \emph{accuracy} sino la
+capacidad de detectar las clases minoritarias.
+
+\subsection{Pregunta de investigación y objetivos}
+\begin{quote}
+\emph{¿Puede un clasificador variacional cuántico de pocos qubits predecir el desenlace de un animal
+desde su ingreso, en un problema multiclase muy desbalanceado y con cambio temporal de distribución,
+con un desempeño comparable al de modelos clásicos de capacidad similar?}
+\end{quote}
+Objetivos específicos:
+\begin{enumerate}[label=(\roman*),leftmargin=*]
+\item construir el conjunto de datos uniendo ingresos y egresos, usando solo información disponible
+al ingreso;
+\item diseñar una codificación de las variables categóricas en un vector numérico pequeño, sin fuga de
+información, apta para codificarse en ángulos de rotación;
+\item implementar y entrenar un clasificador con \emph{data re-uploading} y una pérdida que compense
+el desbalance;
+\item compararlo con modelos clásicos mediante F1 macro, \emph{balanced accuracy}, sensibilidad por
+clase y matriz de confusión;
+\item analizar profundidad, re-subida de datos, \emph{shots}, costo y estabilidad del desempeño año
+con año;
+\item discutir con honestidad la existencia o ausencia de ventaja cuántica.
+\end{enumerate}
+
+\subsection{Formalización}
+Sea $\mathcal{D}=\{(\bm{r}_i,y_i,t_i)\}_{i=1}^{N}$, donde $\bm{r}_i$ es el registro de ingreso de la
+estancia $i$, $t_i$ su fecha y $y_i\in\{0,\dots,4\}$ el desenlace. Una transformación
+$\phi:\bm{r}\mapsto\bm{x}\in\R^{d}$ (ajustada solo con entrenamiento) produce las variables numéricas.
+Se busca $f_{\bm\theta}:\R^{d}\to\Delta^{4}$ que minimice la entropía cruzada \textbf{ponderada por
+clase}
+\begin{equation}
+\mathcal{L}(\bm\theta)=-\frac{1}{\sum_i w_{y_i}}\sum_{i=1}^{N} w_{y_i}\,\log\big[f_{\bm\theta}(\bm{x}_i)\big]_{y_i},
+\qquad w_c=\frac{N}{5\,N_c},
+\label{eq:loss}
+\end{equation}
+donde $N_c$ es el número de ejemplos de la clase $c$ en entrenamiento. Sin los pesos $w_c$, un modelo
+que nunca predice eutanasia ni muerte tendría buena \emph{accuracy} y sería inútil. El problema es
+\textbf{no convexo} y se reportan resultados con tres semillas.
+
+%=====================================================================
+\section{Datos}
+%=====================================================================
+Se usan dos conjuntos públicos (dominio público) del portal de datos abiertos de la Ciudad de Austin:
+\emph{Austin Animal Center Intakes} (173\,812 ingresos) \cite{austinintakes} y \emph{Austin Animal
+Center Outcomes} \cite{austinoutcomes}, ambos del 1 de octubre de 2013 al 5 de mayo de 2025. Se
+restringe el estudio a perros y gatos.
+
+\paragraph{Variables de ingreso.} Tipo de ingreso (callejero, entrega por el dueño, asistencia
+pública, abandono, etc.), condición al ingreso (normal, herido, enfermo, lactante, neonato, edad
+avanzada, etc.), especie, sexo y estado reproductivo al ingreso, edad al ingreso, raza, color, si
+tiene nombre y fecha de ingreso.
+
+\paragraph{Clases.} A partir de los egresos de perros y gatos (conteos aproximados del portal):
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Desenlace (clase) & Estancias & Proporción \\ \midrule
+Adopción & 83\,256 & 50.8\,\% \\
+Transferencia a otra organización & 47\,268 & 28.9\,\% \\
+Devolución al dueño (incluye \emph{Rto-Adopt}) & 26\,794 & 16.4\,\% \\
+Eutanasia & 4\,778 & 2.9\,\% \\
+Muerte (incluye \emph{Disposal}) & 1\,669 & 1.0\,\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+\noindent Se descartan los desenlaces sin significado para el problema (extraviado, robado,
+reubicado; menos de 0.2\,\%) y los registros sin desenlace.
+
+\paragraph{Construcción del conjunto.} Un mismo animal puede tener varias estancias. Cada egreso se
+empareja con el ingreso más reciente del mismo \texttt{Animal ID} anterior a él; se descartan los
+pares inconsistentes (egreso sin ingreso previo). Además, se agrega una variable con el número de
+estancias previas del animal, calculada solo con el pasado.
+
+\paragraph{Partición temporal.} Entrenamiento: ingresos de octubre de 2013 a diciembre de 2021;
+validación: 2022; prueba: enero de 2023 a mayo de 2025. Así se evalúa la generalización hacia el
+futuro, que es el uso real del sistema, y se mide la degradación entre años.
+
+\paragraph{Variables excluidas por fuga.} El sexo al egreso (los animales se esterilizan antes de ser
+adoptados), la fecha y la duración de la estancia, y el subtipo de desenlace, porque no se conocen al
+ingreso.
+
+%=====================================================================
+\section{Preprocesamiento: de categorías a ángulos}
+%=====================================================================
+Las variables categóricas no pueden codificarse directamente en un circuito pequeño: \emph{one-hot}
+sobre más de mil razas requeriría miles de dimensiones. Se proponen los siguientes pasos, todos
+ajustados solo con entrenamiento:
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Limpieza y agrupación.} Edad en días (escala logarítmica); raza dividida en
+indicador de mezcla, raza principal y grupo de raza; color reducido a color base y patrón;
+agrupación de categorías raras (menos de 0.5\,\%) en ``otra''.
+\item \textbf{Codificación por objetivo con validación cruzada} (\emph{out-of-fold target encoding}):
+cada categoría de alta cardinalidad se reemplaza por la frecuencia suavizada de cada desenlace en esa
+categoría, calculada con particiones internas del entrenamiento para que ningún registro vea su propia
+etiqueta.
+\item \textbf{Variables cíclicas}: mes de ingreso como $(\sin,\cos)$.
+\item \textbf{Estandarización y PCA} a $d\in\{6,8,12\}$ componentes, con reporte de la varianza retenida.
+\item \textbf{Escalado a $[0,\pi]$} por min--max ajustado en entrenamiento.
+\end{enumerate}
+
+\paragraph{Submuestreo para el simulador.} Simular el circuito sobre $\approx110\,000$ estancias de
+entrenamiento por época es costoso. Se entrenará con un subconjunto estratificado (p.\ ej.\ 20\,000
+estancias, con todas las de las clases minoritarias), documentado y usado también para los baselines
+clásicos de capacidad comparable. Validación y prueba se evalúan completos.
+
+%=====================================================================
+\section{Enfoque cuántico}
+%=====================================================================
+\subsection{Fundamento: \emph{data re-uploading}}
+Si los datos se codifican una sola vez con compuertas $e^{-ixH/2}$, la salida del circuito es una
+serie de Fourier con frecuencias $\{-1,0,1\}$ por variable \cite{schuld2021}. El \emph{data
+re-uploading} \cite{perez2020} intercala $L$ capas de codificación y bloques entrenables,
+\begin{equation}
+U_{\bm\theta}(\bm{x})=\prod_{l=L}^{1}W_l(\bm\theta_l)\,S_l(\bm{x};\bm\alpha_l),\qquad
+S_l(\bm{x};\bm\alpha_l)=\bigotimes_{q=1}^{n}R_X(\alpha_{l,q}\,x_q),
+\end{equation}
+con lo que cada capa amplía el espectro de frecuencias. $W_l$ aplica $\mathrm{Rot}(\phi,\vartheta,\omega)$
+por qubit y un anillo de CNOT. Con $d=8$ se usan $n=8$ qubits, o $n=4$ qubits con dos variables por
+qubit ($R_Y$ y $R_Z$), y se comparan ambas opciones.
+
+\subsection{Lectura multiclase}
+Se miden los primeros 3 qubits ($2^3=8\geq5$ estados) y se asigna un estado base $\ket{s_c}$ a cada
+clase; las probabilidades se transforman con un \emph{softmax} de temperatura entrenable $\beta$:
+\begin{equation}
+\big[f_{\bm\theta}(\bm{x})\big]_c=\frac{\exp\!\big(\beta\,p_{s_c}(\bm{x})\big)}
+{\sum_{c'}\exp\!\big(\beta\,p_{s_{c'}}(\bm{x})\big)}.
+\end{equation}
+Con $n=8$ y $L=4$ capas el modelo tiene $(3+1)\cdot8\cdot4+1=129$ parámetros.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=0.5cm and 0.8cm, >=Stealth,
+  box/.style={draw, rounded corners, align=center, font=\small, minimum height=0.9cm, inner sep=4pt}]
+\node[box] (in) {Ingresos\\+ egresos};
+\node[box, right=of in] (join) {Unión por\\animal y fecha};
+\node[box, right=of join] (enc) {Codificación\\por objetivo};
+\node[box, right=of enc] (pca) {PCA\\$[0,\pi]$};
+\node[box, right=of pca] (qc) {Circuito\\re-uploading};
+\node[box, right=of qc] (out) {5\\desenlaces};
+\draw[->] (in) -- (join);
+\draw[->] (join) -- (enc);
+\draw[->] (enc) -- (pca);
+\draw[->] (pca) -- (qc);
+\draw[->] (qc) -- (out);
+\end{tikzpicture}
+\caption{Pipeline propuesto. Todas las etapas que dependen de los datos se ajustan solo con el
+periodo de entrenamiento.}
+\end{figure}
+
+\subsection{Optimización}
+Adam (tasa inicial $0.05$, decaimiento coseno, \emph{minibatch} de 128, 20 épocas) sobre simulador de
+vector de estado con diferenciación automática; selección del modelo por F1 macro en validación (2022).
+
+\subsection{¿Por qué puede resolver el problema?}
+\begin{enumerate}[leftmargin=*]
+\item \textbf{No linealidad.} Los desenlaces dependen de interacciones (por ejemplo, un gato neonato
+callejero en verano tiene un riesgo muy distinto al de un perro adulto entregado por su dueño); las
+re-subidas y el entrelazamiento producen términos cruzados entre variables.
+\item \textbf{Compacidad.} Las interacciones se expresan con $\approx130$ parámetros, del orden de un
+MLP pequeño, lo que hace interesante la comparación justa.
+\item \textbf{Desbalance.} La pérdida ponderada \eqref{eq:loss} y la temperatura $\beta$ evitan que el
+circuito colapse a la clase mayoritaria.
+\item \textbf{Universalidad con matices.} Con suficientes capas la familia aproxima funciones acotadas
+\cite{perez2020}, pero eso no garantiza que el optimizador las encuentre; la evidencia empírica es
+parte central de la justificación.
+\end{enumerate}
+
+\subsection{Verificación y costo en hardware}
+Reconstrucción independiente del circuito en Qiskit para comprobar las probabilidades,
+transpilación a compuertas nativas (profundidad y número de CNOT) y estimación del costo en
+\emph{shots} de entrenar con \emph{parameter-shift}.
+
+%=====================================================================
+\section{Librerías y justificación de su uso}
+%=====================================================================
+\begin{itemize}[leftmargin=*]
+\item \textbf{pandas}: unión de las tablas de ingresos y egresos, limpieza y variables temporales.
+\item \textbf{scikit-learn}: \emph{target encoding} con validación cruzada (\texttt{TargetEncoder}),
+estandarización, PCA, baselines (incluido \emph{gradient boosting}) y métricas.
+\item \textbf{PennyLane}: definición del circuito y gradientes automáticos.
+\item \textbf{Qiskit}: verificación cruzada y estimación de recursos.
+\item \textbf{NumPy, matplotlib}: cálculo numérico y gráficas.
+\end{itemize}
+No se necesitan redes preentrenadas ni GPU.
+
+%=====================================================================
+\section{Baselines clásicos y diseño experimental}
+%=====================================================================
+\paragraph{Métricas.} F1 macro (principal), \emph{balanced accuracy}, sensibilidad (\emph{recall}) de
+eutanasia y muerte, pérdida logarítmica, matriz de confusión y \emph{accuracy} como referencia. Media
+y desviación estándar sobre tres semillas.
+
+\paragraph{Baselines} (mismas particiones, mismas $d$ variables y mismos pesos de clase):
+\begin{itemize}[leftmargin=*]
+\item clasificador que siempre predice la clase mayoritaria y clasificador de centroides;
+\item regresión logística multinomial;
+\item MLP con $\approx130$ parámetros y MLP más grande;
+\item Random Forest y \emph{gradient boosting} (\texttt{HistGradientBoostingClassifier});
+\item \emph{gradient boosting} con todas las variables sin PCA, como cota superior.
+\end{itemize}
+
+\paragraph{Ablaciones.}
+(a) profundidad $L\in\{1,2,4,6\}$;
+(b) con y sin re-subida de datos;
+(c) $d\in\{6,8,12\}$ y una o dos variables por qubit;
+(d) con y sin pesos de clase;
+(e) desempeño por año de prueba (2023, 2024, 2025), para medir el efecto del cambio temporal;
+(f) muestreo finito con $S\in\{100,500,2\,000,10\,000\}$ \emph{shots}.
+
+%=====================================================================
+\section{Resultados esperados y criterio de éxito}
+%=====================================================================
+Se espera que \emph{gradient boosting} sobre todas las variables sea el mejor modelo, y que la
+eutanasia y la muerte sean las clases más difíciles. Se considera exitoso el proyecto si:
+\begin{itemize}[leftmargin=*]
+\item el clasificador cuántico supera claramente a la clase mayoritaria y a los centroides en F1 macro
+y \emph{balanced accuracy};
+\item queda dentro de unos pocos puntos de F1 macro de un MLP de capacidad similar;
+\item detecta una fracción útil de los casos de eutanasia y muerte;
+\item se cuantifica la degradación entre años y con pocos \emph{shots}.
+\end{itemize}
+Un resultado negativo también es válido y se discutirá como tal.
+
+%=====================================================================
+\section{Riesgos, ética y mitigación}
+%=====================================================================
+\begin{itemize}[leftmargin=*]
+\item \textbf{Fuga de información}: lista explícita de variables excluidas y verificación de que cada
+variable se conoce al ingreso.
+\item \textbf{Clases muy raras}: pérdida ponderada, métricas macro y análisis por clase.
+\item \textbf{Cambio de distribución}: partición temporal y reporte por año.
+\item \textbf{Uso indebido}: el modelo se plantea solo para priorizar ayuda; se discutirán sesgos por
+raza (p.\ ej.\ razas estigmatizadas) en el análisis de errores.
+\item \textbf{Tiempo de simulación}: submuestreo estratificado documentado y circuitos de 4--8 qubits.
+\end{itemize}
+
+%=====================================================================
+\section{Cronograma}
+%=====================================================================
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{3.0cm}p{9.2cm}p{2.3cm}@{}}
+\toprule
+Fechas & Actividad & Hito \\ \midrule
+17--18 nov & Validación con la profesora; investigación teórica; formalización. & Validación \\
+19--22 nov & Descarga, unión de tablas, limpieza y EDA; codificación de categorías; baselines
+clásicos; primer circuito; diapositivas. & Avances de código \\
+23 nov & Presentación de pre-entrega. & \textbf{Pre-entrega} \\
+24--29 nov & Circuito en PennyLane, verificación con Qiskit, entrenamiento con tres semillas. & Modelo entrenado \\
+30 nov--3 dic & Ablaciones, análisis por año, muestreo finito y costo. & Resultados \\
+4--6 dic & Cuaderno final reproducible, conclusiones y revisión contra la rúbrica. & Cierre \\
+7 dic & Entrega del cuaderno y del documento. & \textbf{Entrega} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=====================================================================
+\begin{thebibliography}{9}
+\bibitem{austinintakes} City of Austin. \emph{Austin Animal Center Intakes (10/01/2013 to
+05/05/2025)}. Portal de datos abiertos, dominio público.
+\url{https://data.austintexas.gov/d/wter-evkm}.
+\bibitem{austinoutcomes} City of Austin. \emph{Austin Animal Center Outcomes (10/01/2013 to
+05/05/2025)}. Portal de datos abiertos, dominio público.
+\url{https://data.austintexas.gov/d/9t4d-g238}.
+\bibitem{martin2026} D.\ Martín-Pérez, F.\ Rodríguez-Díaz, D.\ Gutiérrez-Avilés, A.\ Troncoso y
+F.\ Martínez-Álvarez. \emph{Hybrid Classical-Quantum Transfer Learning with Noisy Quantum Circuits}.
+Computer Modeling in Engineering \& Sciences, 148(1), 2026.
+\bibitem{perez2020} A.\ Pérez-Salinas, A.\ Cervera-Lierta, E.\ Gil-Fuster y J.\ I.\ Latorre.
+\emph{Data re-uploading for a universal quantum classifier}. Quantum, 4:226, 2020.
+\bibitem{schuld2021} M.\ Schuld, R.\ Sweke y J.\ J.\ Meyer. \emph{Effect of data encoding on the
+expressive power of variational quantum-machine-learning models}. Phys.\ Rev.\ A, 103:032430, 2021.
+\bibitem{bergholm2018} V.\ Bergholm \emph{et al.} \emph{PennyLane: Automatic differentiation of hybrid
+quantum-classical computations}. arXiv:1811.04968, 2018.
+\end{thebibliography}
+
+\end{document}

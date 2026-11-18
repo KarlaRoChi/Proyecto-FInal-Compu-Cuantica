@@ -1,0 +1,396 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,array}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+\usepackage{quantikz}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+\providecommand{\ket}[1]{\left|#1\right\rangle}
+\providecommand{\bra}[1]{\left\langle#1\right|}
+\providecommand{\braket}[2]{\left\langle#1\middle|#2\right\rangle}
+\newcommand{\R}{\mathbb{R}}
+
+\title{\textbf{Propuesta de proyecto final:}\\[2pt]
+Identificación de 37 razas de perros y gatos con un clasificador cuántico jerárquico de \emph{data re-uploading}}
+\author{%
+\begin{tabular}{ll}
+\toprule
+Integrante & No.\ de cuenta \\ \midrule
+Rojas Chimal Karla Beatriz & 320048025 \\
+Calderón Gutiérrez Victor Emiliano & 423097331 \\
+\bottomrule
+\end{tabular}\\[10pt]
+Computación Cuántica -- Proyecto Final\\
+Prof.\ Naomi Itzel Reyes Granados \;\;|\;\; Ayud.\ Sebastián González Juárez}
+\date{Entrega: 7 de diciembre de 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent Esta propuesta reemplaza la anterior (perros \emph{vs.}\ gatos, binaria) por un problema
+de \textbf{clasificación multiclase de grano fino}: identificar a cuál de \textbf{37 razas} pertenece
+un perro o un gato a partir de una fotografía, usando el conjunto \emph{Oxford-IIIT Pet}
+\cite{parkhi2012}. Un extractor convolucional congelado reduce cada imagen a un vector, que se
+comprime y se codifica en un circuito variacional con \emph{data re-uploading}. Como 37 clases no
+caben en la lectura de 4 qubits, se propone una arquitectura \textbf{jerárquica} (especie $\to$ raza)
+y se compara contra un circuito plano de 6 qubits y contra modelos clásicos de capacidad similar.
+El problema supera en número de clases, similitud entre clases y escasez de ejemplos por clase al
+de la Opción 1 (7 variedades de frijol), y no ha sido abordado, hasta donde encontramos, con
+aprendizaje automático cuántico.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+%=====================================================================
+\section{Motivación del cambio y relación con trabajos previos}
+%=====================================================================
+La revisión de la propuesta anterior señaló dos problemas: (i) el trabajo de Martín-Pérez
+\emph{et al.}\ \cite{martin2026} ya resuelve perros \emph{vs.}\ gatos con transferencia de
+aprendizaje clásico--cuántica (extractor CNN congelado y circuito de 4 qubits), con más de
+97.5\,\% de \emph{accuracy}; y (ii) una tarea binaria es menos compleja que la clasificación
+multivariada de las propuestas del curso.
+
+Esta propuesta atiende ambos puntos:
+\begin{itemize}[leftmargin=*]
+\item \textbf{Novedad.} El artículo citado estudia cuatro problemas \emph{binarios} con un circuito de
+12 parámetros entrenado con SPSA. Aquí el problema es de \textbf{37 clases}, la lectura multiclase
+del circuito es en sí misma un reto de diseño, y se propone y evalúa una descomposición jerárquica
+del circuito. No encontramos trabajos de clasificación cuántica sobre las razas de Oxford-IIIT Pet.
+\item \textbf{Complejidad.} La tabla~\ref{tab:complejidad} compara el problema con la Opción~1.
+\end{itemize}
+
+\begin{table}[H]
+\centering\small
+\caption{Comparación de complejidad con la propuesta de clase (Opción 1).}
+\label{tab:complejidad}
+\begin{tabular}{@{}p{5.2cm}p{4.2cm}p{5.4cm}@{}}
+\toprule
+Aspecto & Opción 1: Dry Bean & Esta propuesta: Oxford-IIIT Pet \\ \midrule
+Número de clases & 7 & \textbf{37} (12 gatos, 25 perros) \\
+Ejemplos de entrenamiento por clase & $\approx 1\,350$ & $\approx 100$ \\
+Tipo de entrada & 16 medidas geométricas ya calculadas & fotografías RGB de tamaño, pose, fondo e iluminación variables \\
+Similitud entre clases & variedades separables con 16 rasgos & \textbf{grano fino}: razas casi idénticas (p.\ ej.\ American Pit Bull \emph{vs.}\ Staffordshire Bull Terrier) \\
+Nivel de azar & 14.3\,\% & 2.7\,\% \\
+Qubits mínimos para leer las clases & 3 ($2^3\geq7$) & 6 ($2^6\geq37$) o arquitectura jerárquica \\
+Etapas del pipeline & tabla $\to$ PCA $\to$ circuito & imagen $\to$ CNN $\to$ reducción $\to$ circuito(s) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=====================================================================
+\section{Narrativa y problema real}
+%=====================================================================
+Los refugios y las plataformas de adopción registran a diario animales sin documentación. La raza
+(o la raza dominante de una mezcla) es un dato que el personal suele capturar a ojo, y es relevante
+para: estimar tamaño adulto y necesidades de ejercicio, anticipar predisposiciones a enfermedades
+hereditarias (por ejemplo, displasia de cadera en razas grandes o problemas respiratorios en razas
+braquicéfalas), cumplir reglamentos locales sobre ciertas razas y mejorar los filtros de búsqueda de
+los adoptantes. Un asistente que sugiera la raza a partir de la foto que ya se toma al ingreso reduce
+errores de captura y tiempo del personal.
+
+\subsection{Pregunta de investigación y objetivos}
+\begin{quote}
+\emph{¿Puede un clasificador variacional cuántico de pocos qubits identificar 37 razas de perros y
+gatos con un desempeño comparable al de clasificadores clásicos de capacidad similar, y ayuda una
+descomposición jerárquica (especie $\to$ raza) a superar el límite de lectura de un circuito pequeño?}
+\end{quote}
+Objetivos específicos:
+\begin{enumerate}[label=(\roman*),leftmargin=*]
+\item formalizar el problema multiclase y diseñar un preprocesamiento sin fuga de información;
+\item extraer características visuales con una red preentrenada congelada y reducirlas a un tamaño
+compatible con la codificación en 4--6 qubits;
+\item implementar dos clasificadores cuánticos con \emph{data re-uploading}: uno \emph{plano} de 6
+qubits y uno \emph{jerárquico} de 4--5 qubits;
+\item compararlos con modelos clásicos usando \emph{accuracy} top-1 y top-5, F1 macro y matriz de
+confusión;
+\item analizar profundidad, re-subida de datos, número de componentes, número de \emph{shots} y costo;
+\item discutir con honestidad la existencia o ausencia de ventaja cuántica.
+\end{enumerate}
+
+\subsection{Formalización}
+Sea $\mathcal{D}=\{(\bm{I}_i,y_i)\}_{i=1}^{N}$ con $y_i\in\{0,\dots,36\}$ y la especie
+$e(y)\in\{\text{gato},\text{perro}\}$ determinada por la raza. Se define un extractor congelado
+$g:\bm{I}\mapsto\R^{2048}$ y una reducción $\pi:\R^{2048}\to\R^{d}$ con $d\in\{8,12,16\}$. Se busca
+$f_{\bm\theta}:\R^{d}\to\Delta^{36}$ (símplex de probabilidades sobre las 37 razas) que minimice la
+entropía cruzada multiclase
+\begin{equation}
+\mathcal{L}(\bm\theta)=-\frac{1}{N}\sum_{i=1}^{N}\log\big[f_{\bm\theta}(\bm{x}_i)\big]_{y_i},
+\qquad \bm{x}_i=\pi(g(\bm{I}_i)).
+\label{eq:loss}
+\end{equation}
+En la versión jerárquica la probabilidad se factoriza por la regla de la cadena:
+\begin{equation}
+P(y\mid\bm{x})=P\big(e(y)\mid\bm{x}\big)\;P\big(y\mid e(y),\bm{x}\big),
+\label{eq:jerarquia}
+\end{equation}
+con un circuito para la especie y uno por especie para la raza. Como $\bm\theta$ son ángulos de
+rotación, el problema es \textbf{no convexo} y se reportan resultados con tres semillas.
+
+%=====================================================================
+\section{Datos}
+%=====================================================================
+\emph{Oxford-IIIT Pet} \cite{parkhi2012} contiene 7\,349 fotografías de 37 razas (12 de gatos y 25 de
+perros), con alrededor de 200 imágenes por raza. Las imágenes varían en escala, pose, iluminación y
+oclusión, y muchas incluyen personas u objetos. Se distribuye bajo licencia CC BY-SA 4.0 y se puede
+descargar directamente con \texttt{torchvision.datasets.OxfordIIITPet}.
+
+\paragraph{Partición.} Se respeta la partición oficial \texttt{trainval}/\texttt{test}
+(3\,680 / 3\,669 imágenes, $\approx$100 por raza en cada una). Del conjunto \texttt{trainval} se separa
+15\,\% estratificado por raza como validación (\texttt{random\_state=42}). El conjunto de prueba se
+usa una sola vez al final.
+
+\paragraph{Preprocesamiento.} Redimensionado a $224\times224$ (recorte central) y normalización con
+la media y la desviación estándar de ImageNet. Estas transformaciones no dependen de los datos y no
+introducen fuga. Todo lo que sí depende de los datos (estandarización, PCA o LDA, escalado de ángulos)
+se ajusta solo con el conjunto de entrenamiento.
+
+\paragraph{Análisis exploratorio previsto.} Balance de clases, ejemplos de pares de razas difíciles,
+varianza retenida por PCA y separabilidad de las razas en las primeras componentes.
+
+%=====================================================================
+\section{Pipeline clásico de extracción y reducción}
+%=====================================================================
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Extractor congelado.} ResNet-50 preentrenada en ImageNet \cite{he2016} sin reentrenar;
+se toma la salida del \emph{pooling} global (2\,048 dimensiones). Las características se calculan una
+sola vez y se guardan en disco.
+\item \textbf{Estandarización} (media 0, varianza 1) ajustada en entrenamiento.
+\item \textbf{Reducción a $d$ dimensiones.} Se comparan dos opciones:
+  \begin{itemize}
+  \item \emph{PCA} (no supervisado), como sugiere el enunciado;
+  \item \emph{LDA} (análisis discriminante lineal, supervisado, hasta 36 componentes), que maximiza
+  la separación entre clases y es natural en problemas multiclase.
+  \end{itemize}
+  Se evalúa $d\in\{8,12,16\}$ y se reporta la varianza (PCA) o el cociente discriminante (LDA) retenidos.
+\item \textbf{Escalado a $[0,\pi]$} por min--max ajustado en entrenamiento, para que cada valor
+corresponda a un ángulo distinto en la esfera de Bloch.
+\end{enumerate}
+
+%=====================================================================
+\section{Enfoque cuántico}
+%=====================================================================
+\subsection{Fundamento: \emph{data re-uploading}}
+Un modelo variacional evalúa probabilidades de medición de $U_{\bm\theta}(\bm{x})\ket{0}^{\otimes n}$.
+Si el dato se codifica una sola vez con compuertas $e^{-ixH/2}$, la salida es una serie de Fourier con
+frecuencias $\{-1,0,1\}$ por variable \cite{schuld2021}, insuficiente para fronteras complejas. La
+técnica de \emph{data re-uploading} \cite{perez2020} intercala $L$ veces codificación y bloques
+entrenables:
+\begin{equation}
+U_{\bm\theta}(\bm{x})=\prod_{l=L}^{1}W_l(\bm\theta_l)\,S_l(\bm{x};\bm\alpha_l),
+\end{equation}
+lo que amplía el espectro de frecuencias accesible con cada capa. Para codificar $d=2n$ variables en
+$n$ qubits sin perder información, cada qubit recibe dos variables por capa:
+\begin{equation}
+S_l(\bm{x};\bm\alpha_l)=\bigotimes_{q=1}^{n}R_Z(\alpha'_{l,q}\,x_{2q})\,R_Y(\alpha_{l,q}\,x_{2q-1}),
+\end{equation}
+y $W_l$ aplica una rotación genérica $\mathrm{Rot}(\phi,\vartheta,\omega)$ por qubit y un anillo de
+CNOT (figura~\ref{fig:capa}).
+
+\begin{figure}[H]
+\centering
+\begin{quantikz}[row sep=0.25cm, column sep=0.3cm]
+\lstick{$q_1$} & \gate{R_Y(\alpha_{l,1}x_1)} & \gate{R_Z(\alpha'_{l,1}x_2)} & \gate{\mathrm{Rot}(\bm\theta_{l,1})} & \ctrl{1} & & \targ{} & \\
+\lstick{$q_2$} & \gate{R_Y(\alpha_{l,2}x_3)} & \gate{R_Z(\alpha'_{l,2}x_4)} & \gate{\mathrm{Rot}(\bm\theta_{l,2})} & \targ{} & \ctrl{1} & & \\
+\lstick{$q_3$} & \gate{R_Y(\alpha_{l,3}x_5)} & \gate{R_Z(\alpha'_{l,3}x_6)} & \gate{\mathrm{Rot}(\bm\theta_{l,3})} & & \targ{} & \ctrl{-2} &
+\end{quantikz}
+\caption{Una capa $l$ del circuito (se muestran 3 qubits; el anillo de CNOT se cierra del último al
+primero). La capa se repite $L$ veces y al final se miden todos los qubits.}
+\label{fig:capa}
+\end{figure}
+
+\subsection{Lectura multiclase}
+Se miden los $n$ qubits y se asigna a cada clase $c$ un estado base $\ket{s_c}$. Las probabilidades
+$p_{s}(\bm{x})=|\braket{s}{\psi_{\bm\theta}(\bm{x})}|^2$ se convierten en distribución sobre las
+clases con un \emph{softmax} de temperatura entrenable $\beta$:
+\begin{equation}
+\big[f_{\bm\theta}(\bm{x})\big]_c=\frac{\exp\!\big(\beta\,p_{s_c}(\bm{x})\big)}
+{\sum_{c'}\exp\!\big(\beta\,p_{s_{c'}}(\bm{x})\big)}.
+\end{equation}
+La temperatura es necesaria porque las probabilidades individuales son pequeñas cuando hay muchas
+clases; sin ella el \emph{softmax} sería casi uniforme.
+
+\subsection{Dos arquitecturas a comparar}
+\paragraph{(a) Circuito plano.} $n=6$ qubits ($2^6=64\geq37$ estados), $d=12$ variables, $L$ capas.
+Parámetros: $3n$ rotaciones $+\,2n$ escalas por capa, más $\beta$: $|\bm\theta|=30L+1$
+(151 para $L=5$).
+
+\paragraph{(b) Circuito jerárquico} (ecuación~\ref{eq:jerarquia}, figura~\ref{fig:jerarquia}):
+\begin{itemize}[leftmargin=*]
+\item \emph{Especie}: 4 qubits, lectura binaria (probabilidad de $\ket{1}$ en el primer qubit).
+\item \emph{Raza de gato}: 4 qubits ($16\geq12$ estados), entrenado solo con gatos.
+\item \emph{Raza de perro}: 5 qubits ($32\geq25$ estados), entrenado solo con perros.
+\end{itemize}
+Cada etapa tiene su propia reducción ajustada con su subconjunto de entrenamiento. Ningún circuito
+supera 5 qubits, lo que reduce la profundidad necesaria y el costo de lectura en hardware. Como
+inconveniente, un error en la especie se propaga a la raza; por ello se reporta qué fracción del
+error total proviene de cada etapa.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=0.6cm and 1.1cm, >=Stealth,
+  box/.style={draw, rounded corners, align=center, font=\small, minimum height=0.9cm, inner sep=4pt}]
+\node[box] (img) {Imagen\\$224\times224$};
+\node[box, right=of img] (cnn) {ResNet-50\\congelada};
+\node[box, right=of cnn] (red) {Reducción\\PCA / LDA};
+\node[box, right=of red] (esp) {Circuito especie\\4 qubits};
+\node[box, above right=0.2cm and 1.1cm of esp] (gato) {Raza de gato\\4 qubits, 12 clases};
+\node[box, below right=0.2cm and 1.1cm of esp] (perro) {Raza de perro\\5 qubits, 25 clases};
+\draw[->] (img) -- (cnn);
+\draw[->] (cnn) -- (red);
+\draw[->] (red) -- (esp);
+\draw[->] (esp) -- node[above left, font=\footnotesize]{gato} (gato);
+\draw[->] (esp) -- node[below left, font=\footnotesize]{perro} (perro);
+\end{tikzpicture}
+\caption{Arquitectura jerárquica. La probabilidad final de cada raza es el producto de la probabilidad
+de su especie y la probabilidad de la raza dentro de la especie.}
+\label{fig:jerarquia}
+\end{figure}
+
+\subsection{Optimización}
+Se minimiza \eqref{eq:loss} con Adam (tasa inicial $0.05$, decaimiento coseno, \emph{minibatch} de
+64, 30 épocas) en simulador de vector de estado, con gradientes por diferenciación automática y
+selección del modelo por F1 macro en validación. Con $\approx3\,100$ imágenes de entrenamiento y a lo
+más 6 qubits, la simulación es viable en CPU.
+
+\subsection{¿Por qué puede resolver el problema?}
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Expresividad.} Cada re-subida añade frecuencias al modelo de Fourier del circuito, de
+modo que las fronteras entre 37 regiones del espacio de características pueden ser no lineales.
+\item \textbf{Entrelazamiento.} Los CNOT acoplan las variables de distintos qubits, de manera análoga a
+las capas ocultas de una red clásica.
+\item \textbf{Eficiencia de parámetros.} Un clasificador lineal sobre 12 variables y 37 clases ya
+necesita $12\cdot37+37=481$ parámetros; el circuito plano usa $\approx150$. La lectura sobre $2^n$
+estados base permite muchas salidas con pocos parámetros, y esta comparación es parte del estudio.
+\item \textbf{Jerarquía.} La taxonomía especie $\to$ raza divide el problema en subproblemas de 2, 12 y
+25 clases que caben en circuitos más pequeños y menos profundos.
+\item \textbf{Universalidad con matices.} Con suficientes capas, la familia aproxima funciones acotadas
+\cite{perez2020}, pero eso no garantiza que el optimizador encuentre una buena solución; la evidencia
+empírica es parte central de la justificación.
+\end{enumerate}
+
+\subsection{Verificación y costo en hardware}
+El circuito se reconstruirá de forma independiente en Qiskit para comprobar que las probabilidades
+coinciden con PennyLane, y se transpilará a compuertas nativas para reportar profundidad y número de
+CNOT. Se estimará el costo en \emph{shots} del entrenamiento con \emph{parameter-shift}.
+
+%=====================================================================
+\section{Librerías y justificación de su uso}
+%=====================================================================
+\begin{itemize}[leftmargin=*]
+\item \textbf{PyTorch y torchvision}: descarga del conjunto (\texttt{OxfordIIITPet}), transformaciones de
+imagen y ResNet-50 preentrenada. Reimplementar una CNN no aporta al objetivo del curso.
+\item \textbf{PennyLane}: definición del circuito y gradientes automáticos.
+\item \textbf{Qiskit}: verificación cruzada y estimación de recursos en compuertas nativas.
+\item \textbf{scikit-learn}: partición estratificada, estandarización, PCA, LDA, baselines y métricas.
+\item \textbf{NumPy, pandas, matplotlib}: manejo de datos y gráficas.
+\end{itemize}
+
+%=====================================================================
+\section{Baselines clásicos y diseño experimental}
+%=====================================================================
+\paragraph{Métricas.} \emph{Accuracy} top-1 y top-5, F1 macro, matriz de confusión $37\times37$
+(ordenada por especie), \emph{accuracy} a nivel especie y porcentaje de errores entre razas de la misma
+especie. Media y desviación estándar sobre tres semillas.
+
+\paragraph{Baselines} (mismas particiones y mismas $d$ variables, salvo que se indique):
+\begin{itemize}[leftmargin=*]
+\item centroides más cercanos (referencia geométrica, relacionada con la Opción 1 de centroides cuánticos);
+\item regresión logística multinomial;
+\item MLP con número de parámetros comparable al circuito ($\approx150$) y MLP más grande;
+\item SVM con kernel RBF y $k$ vecinos más cercanos;
+\item regresión logística sobre las 2\,048 características originales, como cota superior que mide
+cuánto se pierde al comprimir.
+\end{itemize}
+
+\paragraph{Ablaciones.}
+(a) Plano \emph{vs.}\ jerárquico;
+(b) profundidad $L\in\{1,2,3,5,7\}$;
+(c) con y sin re-subida de datos;
+(d) PCA \emph{vs.}\ LDA y $d\in\{8,12,16\}$;
+(e) muestreo finito con $S\in\{100,500,2\,000,10\,000\}$ \emph{shots}, que es especialmente relevante
+aquí: estimar 37 probabilidades requiere más mediciones que estimar 7.
+
+%=====================================================================
+\section{Resultados esperados y criterio de éxito}
+%=====================================================================
+Las características de ImageNet separan bien las razas, por lo que se espera que la regresión
+logística sobre las 2\,048 dimensiones sea alta, y que la compresión a 12--16 variables reduzca el
+desempeño de \emph{todos} los modelos. Se considera exitoso el proyecto si:
+\begin{itemize}[leftmargin=*]
+\item el clasificador cuántico supera por amplio margen el nivel de azar (2.7\,\%) y al clasificador de
+centroides con la misma entrada;
+\item queda dentro de unos pocos puntos de F1 macro de un MLP con número de parámetros similar;
+\item se puede concluir con evidencia si la arquitectura jerárquica mejora o no a la plana;
+\item se caracteriza la degradación con pocos \emph{shots} y su costo.
+\end{itemize}
+Un resultado negativo también es válido y se discutirá como tal.
+
+%=====================================================================
+\section{Riesgos y mitigación}
+%=====================================================================
+\begin{itemize}[leftmargin=*]
+\item \textbf{Información insuficiente tras comprimir}: comparar PCA y LDA y hasta $d=16$; reportar la
+cota superior con 2\,048 dimensiones.
+\item \textbf{Mesetas estériles} en el circuito de 6 qubits: inicialización pequeña, pocas capas y
+varias semillas; la arquitectura jerárquica es también una mitigación.
+\item \textbf{Sesgo del extractor}: ImageNet contiene varias de estas razas como categorías, lo que
+favorece a todos los modelos por igual; la comparación sigue siendo justa porque todos usan las mismas
+características, y se discutirá en las conclusiones.
+\item \textbf{Tiempo de simulación}: las características se precalculan una sola vez; el conjunto de
+entrenamiento es pequeño.
+\end{itemize}
+
+%=====================================================================
+\section{Cronograma}
+%=====================================================================
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{3.0cm}p{9.2cm}p{2.3cm}@{}}
+\toprule
+Fechas & Actividad & Hito \\ \midrule
+17--18 nov & Validación con la profesora; investigación teórica; formalización. & Validación \\
+19--22 nov & Descarga y EDA; extracción de características con ResNet-50; PCA/LDA; baselines
+clásicos; primer circuito; diapositivas. & Avances de código \\
+23 nov & Presentación de pre-entrega. & \textbf{Pre-entrega} \\
+24--29 nov & Circuitos plano y jerárquico en PennyLane; verificación con Qiskit; entrenamiento con
+tres semillas. & Modelos entrenados \\
+30 nov--3 dic & Ablaciones, muestreo finito y análisis de costo. & Resultados \\
+4--6 dic & Cuaderno final reproducible, conclusiones y revisión contra la rúbrica. & Cierre \\
+7 dic & Entrega del cuaderno y del documento. & \textbf{Entrega} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=====================================================================
+\begin{thebibliography}{9}
+\bibitem{parkhi2012} O.\ M.\ Parkhi, A.\ Vedaldi, A.\ Zisserman y C.\ V.\ Jawahar. \emph{Cats and
+Dogs}. IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2012.
+\url{https://www.robots.ox.ac.uk/~vgg/data/pets/}.
+\bibitem{martin2026} D.\ Martín-Pérez, F.\ Rodríguez-Díaz, D.\ Gutiérrez-Avilés, A.\ Troncoso y
+F.\ Martínez-Álvarez. \emph{Hybrid Classical-Quantum Transfer Learning with Noisy Quantum Circuits}.
+Computer Modeling in Engineering \& Sciences, 148(1), 2026.
+\url{https://www.techscience.com/CMES/v148n1/68192/html}.
+\bibitem{perez2020} A.\ Pérez-Salinas, A.\ Cervera-Lierta, E.\ Gil-Fuster y J.\ I.\ Latorre.
+\emph{Data re-uploading for a universal quantum classifier}. Quantum, 4:226, 2020.
+\bibitem{schuld2021} M.\ Schuld, R.\ Sweke y J.\ J.\ Meyer. \emph{Effect of data encoding on the
+expressive power of variational quantum-machine-learning models}. Phys.\ Rev.\ A, 103:032430, 2021.
+\bibitem{he2016} K.\ He, X.\ Zhang, S.\ Ren y J.\ Sun. \emph{Deep residual learning for image
+recognition}. CVPR, 2016.
+\bibitem{bergholm2018} V.\ Bergholm \emph{et al.} \emph{PennyLane: Automatic differentiation of hybrid
+quantum-classical computations}. arXiv:1811.04968, 2018.
+\end{thebibliography}
+
+\end{document}
