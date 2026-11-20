@@ -26,7 +26,7 @@ lectura del circuito y del número de *shots*.
 
 1. Extracción de características con ResNet-50 (pesos de ImageNet, sin reentrenar). Se calcula una sola vez.
 2. Partición estratificada entrenamiento / validación / prueba. La prueba es la partición oficial `test` del conjunto y no se toca hasta el final.
-3. Estandarización y reducción a 16 dimensiones con **LDA**, ajustadas solo con el conjunto de entrenamiento (sin fuga de información). En validación, LDA superó con claridad a PCA (F1 0.687 contra 0.442 con `d = 16`).
+3. Estandarización y reducción a 16 dimensiones con **LDA**, ajustadas solo con el conjunto de entrenamiento (sin fuga de información). En validación, LDA superó con claridad a PCA (F1 0.687 contra 0.442 con `d = 16`). También se probó LDA con *shrinkage*: mejora a los modelos clásicos, pero empeora al QNN (0.624), así que la validación eligió LDA sin regularizar.
 4. Circuito de 6 qubits: `L` capas de codificación de los datos + rotaciones entrenables + entrelazamiento con CNOT, con re-subida de los datos en cada capa.
 5. Entrenamiento con Adam y entropía cruzada (30 épocas, 3 semillas). Los hiperparámetros se eligieron solo con validación.
 
@@ -38,29 +38,33 @@ unos 20 s con el QNode. PennyLane se usa como circuito de referencia para dibuja
 
 | Modelo | Parámetros | Accuracy | F1 macro |
 |---|---:|:---:|:---:|
-| **QNN plano (LDA 16, L=5)** | 171 | 0.668 ± 0.016 | 0.665 ± 0.014 |
 | **QNN jerárquico** | 288 | 0.763 ± 0.006 | 0.760 ± 0.007 |
-| MLP 5 neuronas | 307 | 0.769 | 0.765 ± 0.043 |
-| MLP 2 neuronas | 145 | 0.331 | 0.307 ± 0.219 |
+| **QNN plano (LDA 16, L=8)** | 273 | 0.715 ± 0.012 | 0.713 ± 0.013 |
+| **QNN plano (LDA 16, L=5)** | 171 | 0.668 ± 0.016 | 0.665 ± 0.014 |
+| MLP-Adam 5 neuronas (entrenado como el QNN) | 307 | 0.755 | 0.748 ± 0.009 |
+| MLP-Adam 3 neuronas (entrenado como el QNN) | 199 | 0.580 | 0.559 ± 0.013 |
 | Centroides | – | 0.834 | 0.832 |
 | Regresión logística (LDA 16) | 629 | 0.849 | 0.848 |
-| SVM RBF (LDA 16) | – | 0.850 | 0.849 |
+| Regresión logística jerárquica | 392 | 0.850 | 0.848 |
+| SVM RBF (LDA 16) | – | 0.848 | 0.846 |
 | MLP 64-32 | 4 389 | 0.833 | 0.832 |
 | Regresión logística (2 048 características) | 75 813 | 0.911 | 0.911 |
 
 Otros datos: top-5 de 0.909 (plano) y 0.956 (jerárquico). En la jerarquía, el 22.8 % de error total se reparte en
 1.25 % por especie equivocada y 21.6 % por raza equivocada dentro de la especie correcta.
 
-Ablaciones (una semilla, F1 en prueba): `L = 1` 0.096, `L = 2` 0.361, `L = 3` 0.523, `L = 5` 0.678, `L = 8` 0.731;
+Ablaciones (una semilla, F1 en prueba): `L = 1` 0.096, `L = 2` 0.361, `L = 3` 0.523, `L = 5` 0.678, `L = 8` 0.731 (0.713 ± 0.013 con tres semillas);
 sin re-subida de datos con `L = 5`: 0.552; lectura con ⟨Z⟩ y capa lineal: 0.731.
 Con *shots* finitos: exacto 0.683, `S = 100` 0.518, `S = 500` 0.643, `S = 2000` 0.676, `S = 10 000` 0.681.
 
 ### Lectura honesta de los resultados
 
 - **No hay ventaja cuántica.** Los modelos clásicos de entrada comparable (regresión logística, SVM, centroides) superan al QNN, y la mayor parte del trabajo ya la hace la ResNet.
-- La jerarquía ayuda, pero tiene más parámetros (288 contra 171); el circuito plano con `L = 8` (273 parámetros) llega a 0.731, así que parte de la mejora puede ser simple capacidad.
+- **La jerarquía ayuda por sí misma.** Con casi los mismos parámetros, el plano con `L = 8` (273) logra 0.713 ± 0.013 de F1 y el jerárquico (288), 0.760 ± 0.007.
+- **Pero ayuda al circuito, no al problema.** La regresión logística jerárquica empata con la plana (0.848 contra 0.848). Nuestra lectura: la jerarquía alivia la lectura del circuito (37 clases en 64 estados base), igual que la lectura con ⟨Z⟩ y capa lineal.
+- **A igual tamaño, el QNN aguanta.** Frente a MLP entrenados con el mismo procedimiento, el jerárquico empata con el de 5 neuronas (0.760 contra 0.748) y el plano supera al de 3 neuronas (0.665 contra 0.559).
 - La re-subida de datos importa: sin ella el F1 baja de 0.678 a 0.552.
-- Las ablaciones usan una sola semilla; las diferencias pequeñas no son concluyentes.
+- Las ablaciones (salvo `L = 8`) usan una sola semilla; las diferencias pequeñas no son concluyentes.
 - Entrenar con la regla del desplazamiento de parámetros en hardware costaría ~1e9 *shots* por época con `S = 1000`.
 
 ## Estructura del repositorio
