@@ -1,0 +1,291 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,array}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{backgrounds,fit,positioning}
+\usepackage{quantikz}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+\providecommand{\ket}[1]{\left|#1\right\rangle}
+\providecommand{\bra}[1]{\left\langle#1\right|}
+\providecommand{\braket}[2]{\left\langle#1\middle|#2\right\rangle}
+\newcommand{\R}{\mathbb{R}}
+
+\title{\textbf{Propuesta de proyecto final:}\\[2pt]
+Diferenciación de perros y gatos con aprendizaje automático cuántico}
+\author{Computación Cuántica -- Proyecto Final\\
+Prof.\ Naomi Itzel Reyes Granados \;\;|\;\; Ayud.\ Sebastián González Juárez}
+\date{Entrega: 7 de diciembre de 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent Esta propuesta plantea clasificar imágenes de perros y gatos con un clasificador
+variacional cuántico (VQC) y compararlo contra modelos clásicos. El conjunto de datos es
+\emph{Dogs vs.\ Cats} de Kaggle. Como las imágenes no pueden entrar directamente a un circuito
+de pocos qubits, se usa un extractor de características clásico preentrenado que reduce cada imagen
+a un vector pequeño, el cual después se codifica en el circuito. La propuesta sigue la metodología de
+\texttt{ProyectosCC.pdf}: preprocesamiento sin fuga de información, reducción con PCA, comparación
+contra clasificadores clásicos y métricas de accuracy, matriz de confusión y F1. Adopta el enfoque de
+\emph{data re-uploading} sugerido en la Opción 1 (Clasificación de Semillas).
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+%=====================================================================
+\section{Narrativa y problema real}
+%=====================================================================
+Un refugio de animales recibe a diario cientos de fotografías de animales encontrados o dados en
+adopción, muchas de ellas tomadas con teléfonos móviles y sin etiquetar. Clasificar manualmente
+cada imagen como perro o gato es lento y consume tiempo del personal veterinario y de adopción. Un
+sistema automático de primera clasificación permite ordenar el catálogo, acelerar el registro y
+detectar errores de carga antes de publicar un animal en la plataforma de adopción.
+
+El problema es binario: dada una imagen $\bm{I}$, decidir si corresponde a un perro ($y=1$) o a un
+gato ($y=0$). Aunque la tarea parece sencilla para una persona, es un reto para modelos pequeños
+porque las fotografías varían en iluminación, fondo, pose, encuadre y tamaño del animal.
+
+\subsection{Pregunta de investigación y objetivos}
+\begin{quote}
+\emph{¿Puede un clasificador variacional cuántico de pocos qubits, alimentado con
+características extraídas por una red neuronal preentrenada, alcanzar un desempeño comparable a
+clasificadores clásicos de capacidad similar en la distinción perro--gato?}
+\end{quote}
+Objetivos específicos: (i) formalizar el problema y definir el preprocesamiento sin fuga de
+información; (ii) extraer y reducir las características de las imágenes a un tamaño compatible con
+la codificación cuántica; (iii) implementar y entrenar un VQC con \emph{data re-uploading};
+(iv) compararlo con baselines clásicos mediante accuracy, F1, matriz de confusión y curva ROC/AUC;
+(v) analizar la influencia de la profundidad del circuito y del número de \emph{shots}; (vi)
+discutir honestamente si existe o no ventaja cuántica.
+
+\subsection{Formalización}
+Sea $\mathcal{D}=\{(\bm{I}_i,y_i)\}_{i=1}^{N}$ con $y_i\in\{0,1\}$. Se define un extractor
+$g:\bm{I}\mapsto\R^{2048}$ (preentrenado y congelado) y una proyección $\pi:\R^{2048}\to\R^{d}$ con
+$d=4$ (número de qubits). El clasificador es
+$f_{\bm\theta}:\R^{d}\to[0,1]$, con $f_{\bm\theta}(\bm{x})=P(y=1\mid\bm{x})$ y $\bm{x}=\pi(g(\bm{I}))$,
+que minimiza la entropía cruzada binaria
+\begin{equation}
+\mathcal{L}(\bm\theta)=-\frac{1}{N}\sum_{i=1}^{N}\Big[y_i\log f_{\bm\theta}(\bm{x}_i)+(1-y_i)\log\big(1-f_{\bm\theta}(\bm{x}_i)\big)\Big].
+\label{eq:loss}
+\end{equation}
+Como $\bm\theta$ contiene ángulos de rotación, el problema es \textbf{no convexo}; por ello se
+reportan resultados con varias semillas de inicialización.
+
+%=====================================================================
+\section{Datos}
+%=====================================================================
+Se usa el conjunto \emph{Dogs vs.\ Cats} de la competencia de Kaggle (\cite{kaggle2013}): 25\,000
+imágenes a color de tamaño variable, etiquetadas como perro o gato, con distribución balanceada
+(12\,500 por clase). Las imágenes de prueba de la competencia no tienen etiqueta pública, por lo
+que la evaluación se hace con una partición del conjunto etiquetado.
+
+\paragraph{Partición.} Partición estratificada 70\,\% entrenamiento / 15\,\% validación /
+15\,\% prueba, con \texttt{random\_state=42}. El conjunto de prueba se usa una sola vez al final.
+Con 25\,000 imágenes se obtienen aproximadamente 17\,500 / 3\,750 / 3\,750 ejemplos.
+
+\paragraph{Preprocesamiento.} Todas las imágenes se redimensionan a $224\times224$ y se normalizan
+con la media y desviación estándar de ImageNet. Esta transformación no depende de los datos, por lo
+que no introduce fuga de información. Las etapas que sí dependen de los datos (PCA y escalado a
+$[0,\pi]$) se ajustan únicamente con el conjunto de entrenamiento.
+
+\paragraph{Balance.} Al ser balanceado, la accuracy es una métrica confiable; aun así se reporta F1
+para la clase positiva y la matriz de confusión.
+
+%=====================================================================
+\section{Pipeline de extracción de características}
+%=====================================================================
+Codificar una imagen completa con un qubit por píxel es imposible en hardware actual. Por ello se
+adopta un enfoque híbrido clásico-cuántico:
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Extractor congelado.} Una red convolucional preentrenada en ImageNet (por ejemplo,
+ResNet-18) se usa sin reentrenar y produce un vector de 512 dimensiones por imagen (capa de pooling
+global). Esto aprovecha el conocimiento visual general sin costo de entrenamiento.
+\item \textbf{Estandarización.} Media 0 y varianza 1, ajustada con entrenamiento.
+\item \textbf{PCA a 4 componentes.} Reduce 512 a 4 dimensiones, una por qubit. Se ajusta con
+entrenamiento y se aplica a validación y prueba. La varianza retenida se reporta como criterio de
+selección de $d$ (se evaluará también $d\in\{4,6,8\}$ como ablación de costo).
+\item \textbf{Escalado a $[0,\pi]$} con min--max ajustado en entrenamiento. Como $R_X(\alpha x)$ es
+$2\pi$-periódica en el ángulo, este rango mantiene una correspondencia inyectiva entre valores y
+estados en la esfera de Bloch.
+\end{enumerate}
+Con esta estructura, el circuito es el único componente cuántico y el resto es clásico y
+reproducible.
+
+%=====================================================================
+\section{Enfoque cuántico: clasificador de \emph{data re-uploading}}
+%=====================================================================
+\subsection{Fundamento}
+Un modelo variacional evalúa $f(\bm{x})=\bra{0}U^\dagger(\bm{x},\bm\theta)\,M\,U(\bm{x},\bm\theta)\ket{0}$.
+Si el dato se codifica una sola vez con puertas $e^{-ixH/2}$, el modelo es una serie de Fourier con
+frecuencias $\{-1,0,1\}$ \cite{schuld2021}, demasiado poco expresiva para fronteras complejas. La
+técnica de \emph{data re-uploading} \cite{perez2020} intercala $L$ veces codificación y bloques
+entrenables:
+\begin{equation}
+U_{\bm\theta}(\bm{x})=\prod_{l=L}^{1}\Big[W_l(\bm\theta_l)\,S_l(\bm{x};\bm\alpha_l)\Big],\qquad
+S_l(\bm{x};\bm\alpha_l)=\bigotimes_{q=1}^{4}R_X(\alpha_{l,q}\,x_q),
+\end{equation}
+donde $W_l$ combina una rotación genérica $\mathrm{Rot}(\phi,\vartheta,\omega)$ por qubit y un anillo
+de CNOT, y los $\alpha_{l,q}$ son escalas entrenables. Así, cada re-subida amplía el espectro de
+frecuencias accesible y permite fronteras de decisión más complejas.
+
+\subsection{Lectura binaria}
+Para clasificación binaria se define la salida como la probabilidad de un subconjunto de estados
+base. Por ejemplo, se asigna la clase perro al conjunto de estados con el qubit de salida en $\ket{1}$:
+\begin{equation}
+p_1(\bm{x})=\sum_{s:\,s_0=1}\big|\braket{s}{\psi(\bm{x})}\big|^{2},\qquad
+f_{\bm\theta}(\bm{x})=\sigma\big(\beta\,(2p_1(\bm{x})-1)\big),
+\end{equation}
+con $\sigma$ la función logística y $\beta>0$ entrenable, que evita que la salida quede casi
+constante (como en la propuesta de semillas, donde la temperatura se volvió necesaria).
+
+\subsection{Número de parámetros}
+Con $n=4$ qubits y $L$ capas, $|\bm\theta|=4nL+1$ (rotaciones, escalas y $\beta$). Para $L=4$ se
+tienen 65 parámetros, cantidad comparable a la de un perceptrón multicapa pequeño.
+
+\subsection{Optimización y costo}
+Se minimiza \eqref{eq:loss} con Adam (tasa inicial $0.05$, decaimiento coseno, \emph{minibatch} de
+128, 20 épocas) sobre simulador de vector de estado, con gradientes por diferenciación automática.
+En hardware real se usaría \emph{parameter-shift}, que requiere dos evaluaciones del circuito por
+parámetro y por muestra; para $L=4$ y $S=1000$ shots, el entrenamiento en hardware costaría del
+orden de $10^{10}$ shots, lo que se reporta como análisis de costo.
+
+\subsection{¿Por qué podría resolver el problema?}
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Expresividad.} Las re-subidas permiten fronteras no lineales en el espacio de
+características.
+\item \textbf{Entrelazamiento.} Los CNOT generan dependencias entre productos de funciones
+trigonométricas de distintas componentes, análogas a capas ocultas.
+\item \textbf{Universalidad.} Con suficientes capas la familia puede aproximar funciones continuas
+acotadas \cite{perez2020}; sin embargo, la universalidad no garantiza que un optimizador local la
+encuentre, por lo que la evidencia empírica es parte esencial de la justificación.
+\end{enumerate}
+
+%=====================================================================
+\section{Librerías y justificación de su uso}
+%=====================================================================
+Según el enunciado, las librerías extra deben justificarse:
+\begin{itemize}[leftmargin=*]
+\item \textbf{PyTorch y torchvision:} cargan el extractor ResNet-18 preentrenado y transforman las
+imágenes. No existe una alternativa razonable para obtener las características sin reimplementar
+una red completa.
+\item \textbf{PennyLane:} define el circuito variacional y calcula gradientes automáticamente.
+\item \textbf{Qiskit:} verificación cruzada del circuito y estimación de profundidad y compuertas.
+\item \textbf{scikit-learn:} partición estratificada, PCA, estandarización, baselines clásicos y
+métricas.
+\end{itemize}
+
+%=====================================================================
+\section{Baselines clásicos y diseño experimental}
+%=====================================================================
+\paragraph{Métricas.} \emph{Accuracy}; F1 (clase perro); matriz de confusión; área bajo la curva
+ROC (AUC). Todas se reportan con media y desviación estándar sobre tres semillas.
+
+\paragraph{Baselines} (mismas particiones y mismas 4 componentes PCA, salvo que se indique):
+\begin{itemize}[leftmargin=*]
+\item Regresión logística.
+\item SVM con kernel RBF.
+\item MLP pequeño de 6 neuronas (capacidad comparable al VQC).
+\item Random Forest.
+\item Con las 512 características originales: regresión logística y SVM-RBF, para medir cuánto se
+pierde al comprimir a 4 qubits.
+\end{itemize}
+
+\paragraph{Ablaciones.} (a) Profundidad $L\in\{1,2,4,6\}$; (b) VQC sin re-subida de datos
+($L=4$, datos codificados solo en la primera capa); (c) número de componentes $d\in\{4,6,8\}$ con
+el costo de qubits asociado.
+
+\paragraph{Muestreo finito.} Evaluación del modelo entrenado con $S\in\{50,200,1000,5000\}$ shots
+sobre 1\,000 imágenes de prueba, comparada con la evaluación exacta.
+
+%=====================================================================
+\section{Resultados esperados y criterio de éxito}
+%=====================================================================
+Se espera que los clasificadores clásicos sobre 512 características superen el 95\,\% de accuracy,
+dado que el extractor ya separa bien ambas clases. Se considera exitoso el VQC si:
+\begin{itemize}[leftmargin=*]
+\item alcanza una accuracy dentro de 3 puntos porcentuales del mejor clásico con la misma entrada
+de 4 componentes;
+\item supera claramente al clasificador de centroides o a un modelo lineal sin no linealidad, lo
+que indicaría que el circuito aporta capacidad no lineal;
+\item muestra degradación controlada al usar pocos shots, con análisis del costo.
+\end{itemize}
+Un resultado negativo (VQC por debajo de los clásicos) también es un resultado válido y se
+discutiría como parte de las conclusiones.
+
+%=====================================================================
+\section{Conclusiones esperadas}
+%=====================================================================
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Cuello de botella.} La compresión de 512 a 4 características es el principal limitante;
+se espera que el desempeño dependa más de la entrada que del clasificador cuántico.
+\item \textbf{Ventaja cuántica.} Es poco probable que exista ventaja: un espacio de Hilbert de dimensión
+16 se simula trivialmente. El aporte es caracterizar un VQC compacto en una tarea visual real y sus costos.
+\item \textbf{Costo práctico.} El VQC requiere mucho más tiempo de simulación y, en hardware, un
+número de mediciones que crece con el tamaño del conjunto de entrenamiento.
+\end{enumerate}
+
+%=====================================================================
+\section{Cronograma ajustado a la pre-entrega y la entrega}
+%=====================================================================
+El proyecto se organiza alrededor de dos hitos: la \textbf{pre-entrega} (presentación en PDF de hasta
+20 minutos, 23 de noviembre de 2026) y la \textbf{entrega final} (Jupyter Notebook ejecutable y
+documento, 7 de diciembre de 2026). Antes de la pre-entrega debe validarse el proyecto con la
+profesora, porque no pertenece a las cuatro propuestas del enunciado.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{3.3cm}p{8.9cm}p{2.3cm}@{}}
+\toprule
+Fechas & Actividad & Hito \\ \midrule
+14--18 nov & Validar el proyecto con la profesora; investigación teórica; formalización y función
+objetivo; EDA del dataset. & Validación \\
+19--22 nov & Extracción de características con el extractor congelado; baselines clásicos; primeras
+pruebas del circuito; preparación de diapositivas. & Avances de código \\
+23 nov & Presentación de pre-entrega (todos los integrantes participan). & \textbf{Pre-entrega} \\
+24--29 nov & Implementación del VQC en PennyLane y verificación con Qiskit; entrenamiento con
+tres semillas. & Modelo entrenado \\
+30 nov--3 dic & Ablaciones (profundidad, re-subida, $d$); muestreo finito; análisis de costo. & Resultados \\
+4--6 dic & Cuaderno Jupyter final reproducible; redacción de conclusiones; revisión contra la rúbrica. & Cierre \\
+7 dic & Entrega final del cuaderno y del documento. & \textbf{Entrega} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=====================================================================
+\section{Riesgos y mitigación}
+%=====================================================================
+\begin{itemize}[leftmargin=*]
+\item \textbf{Tiempo de simulación:} usar $d=4$ y un subconjunto de entrenamiento si es necesario,
+documentando el cambio.
+\item \textbf{Mesetas estériles:} inicializaciones múltiples y arquitectura poco profunda.
+\item \textbf{Extractor sesgado:} el modelo ImageNet puede tener sesgos; se reporta el análisis de
+errores por tipo de imagen.
+\end{itemize}
+
+%=====================================================================
+\begin{thebibliography}{9}
+\bibitem{kaggle2013} Kaggle. \emph{Dogs vs.\ Cats}. Competencia de clasificación de imágenes,
+2013. \url{https://www.kaggle.com/c/dogs-vs-cats}.
+\bibitem{perez2020} A.\ Pérez-Salinas, A.\ Cervera-Lierta, E.\ Gil-Fuster y J.\ I.\ Latorre.
+\emph{Data re-uploading for a universal quantum classifier}. Quantum, 4:226, 2020.
+\bibitem{schuld2021} M.\ Schuld, R.\ Sweke y J.\ J.\ Meyer. \emph{Effect of data encoding on the
+expressive power of variational quantum-machine-learning models}. Phys.\ Rev.\ A, 103:032430, 2021.
+\bibitem{he2016} K.\ He, X.\ Zhang, S.\ Ren y J.\ Sun. \emph{Deep residual learning for image
+recognition}. CVPR, 2016.
+\bibitem{bergholm2018} V.\ Bergholm et al. \emph{PennyLane: Automatic differentiation of hybrid
+quantum-classical computations}. arXiv:1811.04968, 2018.
+\end{thebibliography}
+
+\end{document}
