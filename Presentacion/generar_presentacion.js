@@ -180,9 +180,9 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   pres.addSection({ title: "Método" });
   s = content("¿Cómo se resolvería de forma clásica?", "Método");
   const cls = [
-    [fa.FaFire, "Red convolucional completa", "Entrenar (o ajustar) una CNN de punta a punta. Es lo estándar y supera el 90 %, pero necesita GPU y miles de parámetros.", C.accent3],
+    [fa.FaFire, "Red convolucional completa", "Entrenar (o ajustar) una CNN de punta a punta. Es lo estándar y supera el 90 %, pero necesita GPU y millones de parámetros.", C.accent3],
     [fa.FaLayerGroup, "Transferencia de aprendizaje", "Extractor congelado + clasificador lineal. Con las 2 048 características de ResNet-50: 0.911 de F1.", C.accent2],
-    [fa.FaCompress, "Comprimir y clasificar", "Con solo 16 variables: regresión logística 0.848, SVM 0.846, centroides 0.832. Esa es la referencia justa para el circuito.", C.accent1],
+    [fa.FaCompress, "Comprimir y clasificar", "Con solo 12 variables: regresión logística 0.822, SVM 0.826, centroides 0.816. Esa es la referencia justa para el circuito.", C.accent1],
   ];
   for (let i = 0; i < 3; i++) {
     const x = MX + i * 4.12;
@@ -206,14 +206,14 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   eq(1.5, "Función objetivo", "ℒ(θ) = −(1/N) Σ_{i} log [ f_{θ}(x_{i}) ]_{yᵢ}", "Entropía cruzada sobre 37 clases; no convexa en los ángulos θ.");
   eq(3.15, "Lectura del circuito", "[ f_{θ}(x) ]_{c} = softmax( β · p_{c}(x) )", "pc: probabilidad del estado base de la clase c; β entrenable.");
   eq(4.8, "Versión jerárquica", "P(raza | x) = P(esp. | x) · P(raza | esp., x)", "Un circuito para la especie y uno por especie para la raza.");
-  s.addNotes("x es el vector de 16 variables que sale de la foto; y es la raza. Minimizamos la entropía cruzada con Adam. Como los parámetros son ángulos, el problema es no convexo y reportamos tres semillas.");
+  s.addNotes("x es el vector de 12 variables que sale de la foto; y es la raza. Minimizamos la entropía cruzada con Adam. Como los parámetros son ángulos, el problema es no convexo y reportamos tres semillas.");
 
   // ================================================================ 7. Pipeline
   s = content("De la foto al circuito, sin fuga de información", "Método");
   const steps = [
     [fa.FaCamera, "Foto", "224 × 224", C.accent5],
     [fa.FaFire, "ResNet-50", "congelada · 2 048 núm.", C.accent3],
-    [fa.FaCompress, "Estandarizar + LDA", "16 variables", C.accent2],
+    [fa.FaCompress, "Estandarizar + LDA", "12 variables", C.accent2],
     [fa.FaRulerHorizontal, "Escalar", "a ángulos en [0, π]", C.accent4],
     [fa.FaAtom, "Circuito", "6 qubits · 37 clases", C.accent1],
   ];
@@ -231,7 +231,7 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
     { text: "Todo se ajusta solo con entrenamiento. ", options: { bold: true, color: C.text2 } },
     { text: "Partición oficial: 3 128 fotos de entrenamiento, 552 de validación y 3 669 de prueba. Las decisiones (reducción, d, época) se toman con validación; la prueba solo se usa para reportar." },
   ], { x: MX + 1.4, y: 5.35, w: 10.4, h: 1.05, fontSize: 15, valign: "middle" });
-  s.addNotes("LDA ganó con claridad a PCA en validación (0.687 contra 0.442 de F1). También probamos LDA con shrinkage: ayuda a los clásicos pero empeora al circuito, así que la validación lo descartó.");
+  s.addNotes("LDA ganó con claridad a PCA en validación (0.627 contra 0.385 de F1 con 12 variables). También probamos LDA con shrinkage: ayuda a los clásicos pero empeora al circuito, así que la validación lo descartó.");
 
   // ================================================================ 8. Algoritmo cuántico
   s = content("El algoritmo cuántico: data re-uploading", "Método");
@@ -243,7 +243,7 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   }
   const parts = [
     ["Codificación", "Cada variable entra como un ángulo: R_Y y R_Z por qubit."],
-    ["Bloque entrenable", "Una rotación general Rot(φ, θ, ω) por qubit."],
+    ["Bloque entrenable", "R_Y y R_Z entrenables por qubit, como el ansatz del Lab 7."],
     ["Entrelazamiento", "Anillo de CNOT que conecta los 6 qubits."],
     ["Re-subida", "Los datos vuelven a entrar en cada una de las L capas."],
     ["Lectura", "64 estados base → 37 clases con softmax de temperatura."],
@@ -253,7 +253,7 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
     txt(s, [{ text: p[0] + ": ", options: { bold: true, color: C.accent1 } }, { text: p[1] }],
       { x: 8.15, y: 1.7 + i * 0.98, w: 4.3, h: 0.9, fontSize: 15, valign: "middle" });
   });
-  s.addNotes("Parámetros: 3nL + dL + 1. Con 6 qubits, 16 variables y 5 capas son 171. Verificamos el circuito tres veces: simulador propio en PyTorch, PennyLane y Qiskit coinciden hasta 1e-16.");
+  s.addNotes("Parámetros: 2nL + dL + 1. Con 6 qubits, 12 variables y 5 capas son 121. El circuito se construye y se entrena como la QNN del Lab 7: QNode de PennyLane con interfaz de PyTorch, backprop y Adam. Lo verificamos de forma independiente con Qiskit: coinciden hasta 1e-16.");
 
   // ================================================================ 9. Por qué funciona
   s = content("¿Por qué el algoritmo resuelve el problema?", "Método");
@@ -270,7 +270,7 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
     txt(s, why[i][1], { x: x + 1.35, y: y + 0.3, w: 4.35, h: 0.85, fontSize: 17, bold: true, color: C.text2, valign: "middle" });
     txt(s, why[i][2], { x: x + 0.3, y: y + 1.25, w: 5.35, h: 1.05, fontSize: 14 });
   }
-  s.addNotes("La justificación teórica viene de ver el circuito como una serie de Fourier. La evidencia empírica está en las ablaciones: sin re-subida el F1 baja de 0.678 a 0.552.");
+  s.addNotes("La justificación teórica viene de ver el circuito como una serie de Fourier. En las ablaciones, sin re-subida el F1 baja de 0.622 a 0.433; pero con L = 3 y los mismos 73 parámetros también da 0.433, así que todavía no separamos el efecto de la re-subida del número de parámetros.");
 
   // ================================================================ 10. Jerarquía
   s = content("Dos arquitecturas: plana y jerárquica", "Método");
@@ -280,8 +280,8 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   txt(s, [
     { text: "Un solo circuito de 6 qubits decide entre las 37 razas.", options: { breakLine: true } },
     { text: " ", options: { breakLine: true } },
-    { text: "L = 5 capas → 171 parámetros", options: { bold: true, breakLine: true } },
-    { text: "L = 8 capas → 273 parámetros", options: { bold: true } },
+    { text: "L = 5 capas → 121 parámetros", options: { bold: true, breakLine: true } },
+    { text: "L = 10 capas → 241 parámetros", options: { bold: true } },
   ], { x: MX + 0.3, y: 2.95, w: 3.0, h: 3.2, fontSize: 15 });
   // hierarchical diagram
   const bx = (x, y, w, h, t1, t2, fill, dark = false) => {
@@ -289,23 +289,23 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
     txt(s, [{ text: t1, options: { bold: true, breakLine: true, fontSize: 16 } }, { text: t2, options: { fontSize: 13 } }],
       { x: x + 0.1, y: y + 0.1, w: w - 0.2, h: h - 0.2, align: "center", valign: "middle", color: dark ? C.text1 : C.background1 });
   };
-  bx(4.6, 3.05, 2.2, 1.3, "Foto", "16 variables", C.accent5);
+  bx(4.6, 3.05, 2.2, 1.3, "Foto", "12 variables", C.accent5);
   arrow(s, 6.9, 3.55, 0.45);
-  bx(7.45, 3.05, 2.3, 1.3, "Especie", "4 qubits · 61 par.", C.accent1);
+  bx(7.45, 3.05, 2.3, 1.3, "Especie", "4 qubits · 49 par.", C.accent1);
   s.addShape(pres.shapes.LINE, { x: 9.75, y: 2.35, w: 0.45, h: 1.35, flipV: true, line: { color: H.accent5, width: 2, endArrowType: "triangle" } });
   s.addShape(pres.shapes.LINE, { x: 9.75, y: 3.7, w: 0.45, h: 1.35, line: { color: H.accent5, width: 2, endArrowType: "triangle" } });
-  bx(10.25, 1.6, 2.48, 1.3, "Raza de gato", "4 qubits · 12 clases · 101 par.", C.accent2);
-  bx(10.25, 4.5, 2.48, 1.3, "Raza de perro", "5 qubits · 25 clases · 126 par.", C.accent3);
-  txt(s, "Jerárquica: 288 parámetros en total; ningún circuito pasa de 5 qubits", { x: 4.6, y: 6.05, w: 8.1, h: 0.4, fontSize: 14, italic: true, color: C.text2, align: "center" });
-  s.addNotes("La jerárquica tiene más parámetros que la plana de 5 capas. Por eso entrenamos también una plana de 8 capas con casi los mismos parámetros: así separamos el efecto de la jerarquía del efecto del tamaño.");
+  bx(10.25, 1.6, 2.48, 1.3, "Raza de gato", "4 qubits · 12 clases · 81 par.", C.accent2);
+  bx(10.25, 4.5, 2.48, 1.3, "Raza de perro", "5 qubits · 25 clases · 101 par.", C.accent3);
+  txt(s, "Jerárquica: 231 parámetros en total; ningún circuito pasa de 5 qubits", { x: 4.6, y: 6.05, w: 8.1, h: 0.4, fontSize: 14, italic: true, color: C.text2, align: "center" });
+  s.addNotes("La jerárquica tiene más parámetros que la plana de 5 capas. Por eso entrenamos también una plana de 10 capas, con un poco más de parámetros (241 contra 231): así separamos el efecto de la jerarquía del efecto del tamaño.");
 
   // ================================================================ 11. Resultados
   pres.addSection({ title: "Resultados" });
   s = content("Resultados: funciona, pero no hay ventaja cuántica", "Resultados");
   const models = [
-    ["MLP-Adam 3 neuronas", 0, 0.559], ["QNN plano L=5", 0.665, 0], ["QNN plano L=8", 0.713, 0], ["MLP-Adam 5 neuronas", 0, 0.748],
-    ["QNN jerárquico", 0.760, 0], ["Centroides", 0, 0.832], ["MLP 64-32", 0, 0.832], ["k-NN (k=5)", 0, 0.842],
-    ["SVM RBF", 0, 0.846], ["Logística", 0, 0.848], ["Logística jerárquica", 0, 0.848], ["Logística 2 048 car.", 0, 0.911],
+    ["MLP-Adam 2 neuronas", 0, 0.261], ["QNN plano L=5", 0.615, 0], ["MLP-Adam 4 neuronas", 0, 0.640], ["QNN plano L=10", 0.702, 0],
+    ["QNN jerárquico", 0.738, 0], ["MLP 64-32", 0, 0.811], ["k-NN (k=5)", 0, 0.815], ["Centroides", 0, 0.816],
+    ["Logística", 0, 0.822], ["SVM RBF", 0, 0.826], ["Logística jerárquica", 0, 0.849], ["Logística 2 048 car.", 0, 0.911],
   ];
   card(s, MX, 1.4, 8.2, 5.4);
   s.addChart(pres.charts.BAR, [
@@ -315,34 +315,34 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
     chartColors: [H.accent1, "C3C9D4"], showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: "0.000;;;",
     valAxisMinVal: 0, valAxisMaxVal: 1, valAxisLabelFormatCode: "0.0", showLegend: true, legendPos: "b", legendFontSize: 12,
     showTitle: true, title: "F1 macro en prueba (3 669 fotos)", titleFontSize: 14, titleColor: H.dk1 }, chartText));
-  stat(s, 9.1, 1.4, 3.63, 1.6, "0.760", "F1 del QNN jerárquico (azar: 0.027)", C.accent1);
-  stat(s, 9.1, 3.2, 3.63, 1.6, "−9 pts", "frente a una regresión logística con la misma entrada", C.accent2);
-  stat(s, 9.1, 5.0, 3.63, 1.8, "95.6 %", "top-5: la raza correcta casi siempre está entre las 5 primeras", C.accent3);
+  stat(s, 9.1, 1.4, 3.63, 1.6, "0.738", "F1 del QNN jerárquico (azar: 0.027)", C.accent1);
+  stat(s, 9.1, 3.2, 3.63, 1.6, "−8 pts", "frente a una regresión logística con la misma entrada", C.accent2);
+  stat(s, 9.1, 5.0, 3.63, 1.8, "94.7 %", "top-5: la raza correcta casi siempre está entre las 5 primeras", C.accent3);
   s.addNotes("Media de tres semillas para los modelos estocásticos. El circuito resuelve el problema mucho mejor que el azar, pero cualquier modelo clásico con unos cientos de parámetros más lo supera.");
 
   // ================================================================ 12. Jerarquía vs capacidad
   s = content("¿La jerarquía ayuda o solo tiene más parámetros?", "Resultados");
-  stat(s, MX, 1.5, 3.85, 1.9, "0.665", "Plano L = 5 · 171 parámetros", C.accent5);
-  stat(s, MX + 4.12, 1.5, 3.85, 1.9, "0.713", "Plano L = 8 · 273 parámetros", C.accent3);
-  stat(s, MX + 8.24, 1.5, 3.85, 1.9, "0.760", "Jerárquico · 288 parámetros", C.accent1);
+  stat(s, MX, 1.5, 3.85, 1.9, "0.615", "Plano L = 5 · 121 parámetros", C.accent5);
+  stat(s, MX + 4.12, 1.5, 3.85, 1.9, "0.702", "Plano L = 10 · 241 parámetros", C.accent3);
+  stat(s, MX + 8.24, 1.5, 3.85, 1.9, "0.738", "Jerárquico · 231 parámetros", C.accent1);
   card(s, MX, 3.75, 5.95, 2.85);
   await iconCircle(s, fa.FaCircleCheck, MX + 0.3, 4.05, 0.8, C.accent6, H.lt1);
   txt(s, "Sí ayuda, y no es solo tamaño", { x: MX + 1.3, y: 4.05, w: 4.4, h: 0.8, fontSize: 18, bold: true, color: C.text2, valign: "middle" });
-  txt(s, "Con casi los mismos parámetros, el jerárquico gana unos 5 puntos de F1, muy por encima de la variación entre semillas (± 0.01).",
+  txt(s, "Con un poco menos parámetros que el plano de 10 capas, el jerárquico gana casi 4 puntos de F1, varias veces la variación entre semillas (± 0.01).",
     { x: MX + 0.3, y: 5.0, w: 5.35, h: 1.4, fontSize: 15 });
   card(s, MX + 6.15, 3.75, 5.98, 2.85);
   await iconCircle(s, fa.FaScaleBalanced, MX + 6.45, 4.05, 0.8, C.accent2, H.lt1);
-  txt(s, "Pero ayuda al circuito, no al problema", { x: MX + 7.45, y: 4.05, w: 4.5, h: 0.8, fontSize: 18, bold: true, color: C.text2, valign: "middle" });
-  txt(s, "La regresión logística jerárquica empata con la plana (0.848 y 0.848). Nuestra lectura: la jerarquía alivia la lectura de 37 clases en 64 estados.",
+  txt(s, "Ayuda más al circuito que al clásico", { x: MX + 7.45, y: 4.05, w: 4.5, h: 0.8, fontSize: 18, bold: true, color: C.text2, valign: "middle" });
+  txt(s, "La regresión logística jerárquica sube de 0.822 a 0.849. Al circuito le ayuda más; nuestra lectura: alivia la lectura de 37 clases en 64 estados.",
     { x: MX + 6.45, y: 5.0, w: 5.4, h: 1.4, fontSize: 15 });
-  s.addNotes("Tres semillas en los tres modelos cuánticos. La ablación de lectura con valores esperados Z y una capa lineal apunta en la misma dirección, aunque no es una comparación a igual tamaño.");
+  s.addNotes("Tres semillas en los tres modelos cuánticos. La ablación de lectura con valores esperados Z y una matriz aprendida (Método B del Lab 7) apunta en la misma dirección, aunque no es una comparación a igual tamaño.");
 
   // ================================================================ 13. Igual tamaño
-  s = content("A igual tamaño, el circuito aguanta frente a un MLP", "Resultados");
+  s = content("A igual tamaño, el circuito supera a un MLP", "Resultados");
   card(s, MX, 1.45, 7.0, 5.3);
   s.addChart(pres.charts.BAR, [
-    { name: "QNN", labels: ["≈ 200 parámetros", "≈ 300 parámetros"], values: [0.665, 0.760] },
-    { name: "MLP-Adam", labels: ["≈ 200 parámetros", "≈ 300 parámetros"], values: [0.559, 0.748] },
+    { name: "QNN", labels: ["≈ 130 parámetros", "≈ 235 parámetros"], values: [0.615, 0.738] },
+    { name: "MLP-Adam", labels: ["≈ 130 parámetros", "≈ 235 parámetros"], values: [0.261, 0.640] },
   ], Object.assign({ x: MX + 0.2, y: 1.6, w: 6.6, h: 5.0, barDir: "col", barGrouping: "clustered", barGapWidthPct: 60,
     chartColors: [H.accent1, "C3C9D4"], showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: "0.000",
     valAxisMinVal: 0, valAxisMaxVal: 1, valAxisLabelFormatCode: "0.0", showLegend: true, legendPos: "b", legendFontSize: 12,
@@ -353,23 +353,23 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   txt(s, [
     { text: "Los MLP se entrenan igual que el circuito: Adam, decaimiento coseno, 30 épocas, mejor época en validación, tres semillas.", options: { breakLine: true } },
     { text: " ", options: { breakLine: true } },
-    { text: "≈ 200 parámetros: ", options: { bold: true } }, { text: "el QNN gana por 10 puntos.", options: { breakLine: true } },
-    { text: "≈ 300 parámetros: ", options: { bold: true } }, { text: "empate (0.760 contra 0.748)." },
+    { text: "≈ 130 parámetros: ", options: { bold: true } }, { text: "el QNN gana de lejos, aunque ese MLP de 2 neuronas es muy inestable.", options: { breakLine: true } },
+    { text: "≈ 235 parámetros: ", options: { bold: true } }, { text: "el QNN gana por 10 puntos (0.738 contra 0.640)." },
   ], { x: 8.25, y: 2.8, w: 4.2, h: 3.7, fontSize: 15 });
-  s.addNotes("QNN de 171 parámetros contra MLP de 3 neuronas (199); jerárquico de 288 contra MLP de 5 neuronas (307). Los MLP sí tienen mejor top-5.");
+  s.addNotes("QNN de 121 parámetros contra MLP de 2 neuronas (137); jerárquico de 231 contra MLP de 4 neuronas (237). El número de neuronas se elige para que los parámetros queden lo más cerca posible de cada circuito. El MLP de 4 neuronas sí tiene mejor top-5.");
 
   // ================================================================ 14. Ablaciones
   s = content("¿Qué parte del circuito hace el trabajo?", "Resultados");
   card(s, MX, 1.45, 6.6, 5.3);
-  s.addChart(pres.charts.LINE, [{ name: "F1 macro", labels: ["1", "2", "3", "5", "8"], values: [0.096, 0.361, 0.523, 0.678, 0.731] }],
+  s.addChart(pres.charts.LINE, [{ name: "F1 macro", labels: ["1", "2", "3", "5", "10"], values: [0.088, 0.254, 0.433, 0.622, 0.706] }],
     Object.assign({ x: MX + 0.2, y: 1.6, w: 6.2, h: 5.0, chartColors: [H.accent1], lineSize: 3, lineDataSymbol: "circle", lineDataSymbolSize: 9,
       showValue: true, dataLabelPosition: "t", dataLabelFormatCode: "0.00", valAxisMinVal: 0, valAxisMaxVal: 1, valAxisLabelFormatCode: "0.0",
       showLegend: false, showTitle: true, title: "Profundidad: F1 macro según el número de capas L", titleFontSize: 14, titleColor: H.dk1,
       showCatAxisTitle: true, catAxisTitle: "capas L", catAxisTitleColor: H.dk1, catAxisTitleFontSize: 12 }, chartText));
-  stat(s, 7.55, 1.45, 5.18, 1.6, "0.552 → 0.678", "sin re-subida → con re-subida (L = 5)", C.accent1);
-  stat(s, 7.55, 3.3, 5.18, 1.6, "0.731", "leer valores esperados de Z + capa lineal (258 parámetros más)", C.accent2);
-  stat(s, 7.55, 5.15, 5.18, 1.6, "0.44 → 0.69", "PCA → LDA en validación: la entrada pesa más que el circuito", C.accent3);
-  s.addNotes("Las ablaciones usan una semilla, salvo L = 8, que tiene tres. La re-subida importa como predice la teoría de Fourier; la forma de comprimir importa todavía más.");
+  stat(s, 7.55, 1.45, 5.18, 1.6, "0.433 → 0.622", "sin → con re-subida (L = 5); con L = 3 y los mismos 73 parámetros también da 0.433", C.accent1);
+  stat(s, 7.55, 3.3, 5.18, 1.6, "0.739", "leer valores esperados de Z con matriz aprendida (Método B del Lab 7, 258 parámetros más)", C.accent2);
+  stat(s, 7.55, 5.15, 5.18, 1.6, "0.39 → 0.63", "PCA → LDA en validación: la entrada pesa más que el circuito", C.accent3);
+  s.addNotes("Las ablaciones usan una semilla, salvo L = 10, que tiene tres. La profundidad ayuda. La re-subida va en la dirección que predice la teoría de Fourier, pero con estos experimentos no la separamos del número de parámetros. La forma de comprimir importa todavía más.");
 
   // ================================================================ 15. Errores
   s = content("Los errores están donde uno los esperaría", "Resultados");
@@ -381,32 +381,32 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   card(s, 10.25, 1.45, 2.48, 5.3);
   txt(s, "Más confundidas", { x: 10.45, y: 1.65, w: 2.1, h: 0.5, fontSize: 16, bold: true, color: C.text2 });
   txt(s, [
-    { text: "Siamese → Birman", options: { breakLine: true } }, { text: "Egyptian Mau → Bengal", options: { breakLine: true } },
-    { text: "Am. Bulldog → Boxer", options: { breakLine: true } }, { text: "Min. Pinscher → Chihuahua", options: { breakLine: true } },
-    { text: "Pit Bull → Staffordshire" },
+    { text: "Boxer → Am. Bulldog", options: { breakLine: true } }, { text: "Birman → Siamese", options: { breakLine: true } },
+    { text: "Ragdoll → Birman", options: { breakLine: true } }, { text: "Min. Pinscher → Chihuahua", options: { breakLine: true } },
+    { text: "Bengal → Egyptian Mau" },
   ], { x: 10.45, y: 2.25, w: 2.15, h: 3.0, fontSize: 13, paraSpaceAfter: 8 });
-  txt(s, "El jerárquico casi no confunde especies: 1.25 % de error por especie.", { x: 10.45, y: 5.25, w: 2.1, h: 1.3, fontSize: 13, italic: true, color: C.accent1 });
-  s.addNotes("Gatos arriba a la izquierda, perros abajo a la derecha. El plano manda a la especie equivocada un 5.7 % de las fotos; el jerárquico solo un 1.25 %.");
+  txt(s, "El jerárquico casi no confunde especies: 1.7 % de error por especie.", { x: 10.45, y: 5.25, w: 2.1, h: 1.3, fontSize: 13, italic: true, color: C.accent1 });
+  s.addNotes("Gatos arriba a la izquierda, perros abajo a la derecha. El plano manda a la especie equivocada un 5.4 % de las fotos; el jerárquico solo un 1.7 %.");
 
   // ================================================================ 16. Shots y costo
   s = content("En hardware real: mediciones y costo", "Resultados");
   card(s, MX, 1.45, 6.6, 5.3);
-  s.addChart(pres.charts.LINE, [{ name: "accuracy", labels: ["100", "500", "2 000", "10 000"], values: [0.518, 0.643, 0.676, 0.681] }],
+  s.addChart(pres.charts.LINE, [{ name: "accuracy", labels: ["100", "500", "2 000", "10 000"], values: [0.427, 0.574, 0.611, 0.623] }],
     Object.assign({ x: MX + 0.2, y: 1.6, w: 6.2, h: 5.0, chartColors: [H.accent2], lineSize: 3, lineDataSymbol: "circle", lineDataSymbolSize: 9,
       showValue: true, dataLabelPosition: "b", dataLabelFormatCode: "0.000", valAxisMinVal: 0.4, valAxisMaxVal: 0.75, valAxisLabelFormatCode: "0.00",
-      showLegend: false, showTitle: true, title: "Accuracy del plano según shots por foto (exacto: 0.683)", titleFontSize: 14, titleColor: H.dk1,
+      showLegend: false, showTitle: true, title: "Accuracy del plano según shots por foto (exacto: 0.624)", titleFontSize: 14, titleColor: H.dk1,
       showCatAxisTitle: true, catAxisTitle: "shots por foto", catAxisTitleColor: H.dk1, catAxisTitleFontSize: 12 }, chartText));
   stat(s, 7.55, 1.45, 5.18, 1.6, "≈ 2 000", "shots por foto para quedar a 1 punto del valor exacto", C.accent2);
-  stat(s, 7.55, 3.3, 5.18, 1.6, "3 × 10¹⁰", "shots para entrenar 30 épocas con parameter-shift", C.accent1);
+  stat(s, 7.55, 3.3, 5.18, 1.6, "2 × 10¹⁰", "shots para entrenar 30 épocas con parameter-shift", C.accent1);
   stat(s, 7.55, 5.15, 5.18, 1.6, "55 · 30 CNOT", "profundidad del plano transpilado a rz, sx, x, cx", C.accent3);
-  s.addNotes("Con 37 clases cada raza recibe pocas cuentas, así que hacen falta más mediciones que con 7 clases. Entrenar en hardware sería carísimo; en simulación es un backward pass.");
+  s.addNotes("Los shots se simulan con un dispositivo de PennyLane con shots = S, como en el Lab 7 de k-NN. Con 37 clases cada raza recibe pocas cuentas, así que hacen falta más mediciones que con 7 clases. Entrenar en hardware sería carísimo; en simulación es un backward pass.");
 
   // ================================================================ 17. Librerías
   pres.addSection({ title: "Cierre" });
   s = content("Librerías y por qué las usamos", "Cierre");
   const libs = [
-    [fa.FaFire, "PyTorch + torchvision", "Descarga del conjunto, ResNet-50 preentrenada y un simulador rápido del circuito (3 s por época contra 20 s)."],
-    [fa.FaAtom, "PennyLane", "Definición de referencia del circuito, dibujo y recursos con qml.specs."],
+    [fa.FaFire, "PyTorch + torchvision", "Descarga del conjunto, ResNet-50 preentrenada y Adam para entrenar el circuito, como en el Lab 7."],
+    [fa.FaAtom, "PennyLane", "El circuito como QNode con interfaz de PyTorch (como en el Lab 7), gradientes y shots."],
     [fa.FaMicrochip, "Qiskit", "Verificación independiente del circuito y transpilación a compuertas nativas."],
     [fa.FaGears, "scikit-learn", "Particiones, estandarización, PCA, LDA, métricas y modelos clásicos."],
     [fa.FaTable, "NumPy + pandas", "Cálculo numérico y tablas de resultados."],
@@ -419,7 +419,7 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
     txt(s, libs[i][1], { x: x + 1.15, y: y + 0.25, w: 2.5, h: 0.75, fontSize: 17, bold: true, color: C.text2, valign: "middle" });
     txt(s, libs[i][2], { x: x + 0.25, y: y + 1.12, w: 3.4, h: 1.15, fontSize: 14 });
   }
-  s.addNotes("Reimplementar una red convolucional no aporta al objetivo del curso; el simulador propio en PyTorch se comprobó contra PennyLane y Qiskit.");
+  s.addNotes("Reimplementar una red convolucional no aporta al objetivo del curso. El circuito se construye y se entrena igual que la QNN del Lab 7; la única diferencia es que al QNode se le pasa el minibatch completo (parameter broadcasting), que da el mismo resultado y es unas 100 veces más rápido.");
 
   // ================================================================ 18. Reflexiones
   s = content("Primeras reflexiones: ¿por qué cuántico?", "Cierre");
@@ -428,8 +428,8 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   txt(s, "Lo que sí encontramos", { x: MX + 1.3, y: 1.8, w: 4.4, h: 0.8, fontSize: 19, bold: true, color: C.text2, valign: "middle" });
   txt(s, [
     { text: "Un circuito de 5–6 qubits resuelve 37 clases mucho mejor que el azar.", options: { bullet: true, breakLine: true } },
-    { text: "Es compacto: a igual número de parámetros empata o supera a un MLP.", options: { bullet: true, breakLine: true } },
-    { text: "La jerarquía ayuda por una razón propia del circuito: su lectura.", options: { bullet: true } },
+    { text: "Es compacto: a igual número de parámetros supera a un MLP entrenado igual.", options: { bullet: true, breakLine: true } },
+    { text: "La jerarquía le ayuda más que al modelo clásico, en parte por su lectura.", options: { bullet: true } },
   ], { x: MX + 0.3, y: 2.85, w: 5.35, h: 3.5, fontSize: 17, paraSpaceAfter: 14 });
   card(s, MX + 6.15, 1.5, 5.98, 5.1);
   await iconCircle(s, fa.FaCircleXmark, MX + 6.45, 1.8, 0.8, C.accent2, H.lt1);
@@ -445,7 +445,7 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   s = content("¿Qué falta para el 7 de diciembre?", "Cierre");
   const todo = [
     ["Ruido", "Simular el circuito con un modelo de ruido (Qiskit Aer)."],
-    ["Solidez", "Validación cruzada y más semillas en las ablaciones."],
+    ["Solidez", "Validación cruzada, más semillas y aislar la re-subida a igual tamaño."],
     ["Lectura", "Probar lecturas a igual tamaño para confirmar el cuello de botella."],
     ["Ángulos", "Escalado robusto: entender por qué el shrinkage perjudica al circuito."],
     ["Entrega", "Cuaderno final reproducible, documento y revisión contra la rúbrica."],
