@@ -453,19 +453,12 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
     ["Entrega", "Cuaderno final reproducible, documento y revisión contra la rúbrica."],
   ];
   todo.forEach((t, i) => {
-    const y = 1.5 + i * 1.02;
-    s.addShape(pres.shapes.OVAL, { x: MX, y: y + 0.08, w: 0.62, h: 0.62, fill: { color: C.accent1 }, line: { type: "none" } });
-    txt(s, String(i + 1), { x: MX, y: y + 0.08, w: 0.62, h: 0.62, fontSize: 18, bold: true, color: C.background1, align: "center", valign: "middle" });
-    txt(s, [{ text: t[0] + ": ", options: { bold: true, color: C.text2 } }, { text: t[1] }], { x: MX + 0.85, y, w: 6.3, h: 0.8, fontSize: 15, valign: "middle" });
+    const y = 1.45 + i * 1.03;
+    card(s, MX, y, W - 2 * MX, 0.85);
+    s.addShape(pres.shapes.OVAL, { x: MX + 0.25, y: y + 0.13, w: 0.6, h: 0.6, fill: { color: C.accent1 }, line: { type: "none" } });
+    txt(s, String(i + 1), { x: MX + 0.25, y: y + 0.13, w: 0.6, h: 0.6, fontSize: 18, bold: true, color: C.background1, align: "center", valign: "middle" });
+    txt(s, [{ text: t[0] + ": ", options: { bold: true, color: C.text2 } }, { text: t[1] }], { x: MX + 1.15, y: y + 0.05, w: 10.8, h: 0.75, fontSize: 17, valign: "middle" });
   });
-  card(s, 8.1, 1.5, 4.63, 5.1, C.background1);
-  await iconCircle(s, fa.FaQuestion, 8.4, 1.8, 0.8, C.accent4, H.dk1);
-  txt(s, "Dudas para la profesora", { x: 9.4, y: 1.8, w: 3.1, h: 0.8, fontSize: 18, bold: true, color: C.text2, valign: "middle" });
-  txt(s, [
-    { text: "¿Es válido reducir con LDA, que usa las etiquetas, antes del circuito?", options: { bullet: true, breakLine: true } },
-    { text: "¿Se espera una ejecución en hardware real o basta con simulación con ruido?", options: { bullet: true, breakLine: true } },
-    { text: "¿La comparación a igual número de parámetros es la adecuada para el reporte?", options: { bullet: true } },
-  ], { x: 8.4, y: 2.85, w: 4.1, h: 3.6, fontSize: 17, paraSpaceAfter: 14 });
   s.addNotes("El cuaderno ya corre de punta a punta y tiene todos los resultados; lo que falta es robustez y el análisis con ruido.");
 
   // ================================================================ 20. Cierre
