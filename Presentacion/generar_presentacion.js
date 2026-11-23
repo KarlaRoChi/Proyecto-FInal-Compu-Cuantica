@@ -381,10 +381,12 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
   card(s, 10.25, 1.45, 2.48, 5.3);
   txt(s, "Más confundidas", { x: 10.45, y: 1.65, w: 2.1, h: 0.5, fontSize: 16, bold: true, color: C.text2 });
   txt(s, [
+    { text: "Plano", options: { bold: true, color: C.accent1, breakLine: true } },
     { text: "Boxer → Am. Bulldog", options: { breakLine: true } }, { text: "Birman → Siamese", options: { breakLine: true } },
-    { text: "Ragdoll → Birman", options: { breakLine: true } }, { text: "Min. Pinscher → Chihuahua", options: { breakLine: true } },
-    { text: "Bengal → Egyptian Mau" },
-  ], { x: 10.45, y: 2.25, w: 2.15, h: 3.0, fontSize: 13, paraSpaceAfter: 8 });
+    { text: "Ragdoll → Birman", options: { breakLine: true } },
+    { text: "Jerárquico", options: { bold: true, color: C.accent1, breakLine: true } },
+    { text: "Min. Pinscher → Chihuahua", options: { breakLine: true } }, { text: "Bengal → Egyptian Mau" },
+  ], { x: 10.45, y: 2.2, w: 2.15, h: 3.0, fontSize: 13, paraSpaceAfter: 6 });
   txt(s, "El jerárquico casi no confunde especies: 1.7 % de error por especie.", { x: 10.45, y: 5.25, w: 2.1, h: 1.3, fontSize: 13, italic: true, color: C.accent1 });
   s.addNotes("Gatos arriba a la izquierda, perros abajo a la derecha. El plano manda a la especie equivocada un 5.4 % de las fotos; el jerárquico solo un 1.7 %.");
 
@@ -396,7 +398,7 @@ const chartText = { catAxisLabelColor: H.dk1, valAxisLabelColor: H.dk1, catAxisL
       showValue: true, dataLabelPosition: "b", dataLabelFormatCode: "0.000", valAxisMinVal: 0.4, valAxisMaxVal: 0.75, valAxisLabelFormatCode: "0.00",
       showLegend: false, showTitle: true, title: "Accuracy del plano según shots por foto (exacto: 0.624)", titleFontSize: 14, titleColor: H.dk1,
       showCatAxisTitle: true, catAxisTitle: "shots por foto", catAxisTitleColor: H.dk1, catAxisTitleFontSize: 12 }, chartText));
-  stat(s, 7.55, 1.45, 5.18, 1.6, "≈ 2 000", "shots por foto para quedar a 1 punto del valor exacto", C.accent2);
+  stat(s, 7.55, 1.45, 5.18, 1.6, "≈ 2 000", "shots por foto para quedar a poco más de 1 punto del valor exacto (0.611 contra 0.624)", C.accent2);
   stat(s, 7.55, 3.3, 5.18, 1.6, "2 × 10¹⁰", "shots para entrenar 30 épocas con parameter-shift", C.accent1);
   stat(s, 7.55, 5.15, 5.18, 1.6, "55 · 30 CNOT", "profundidad del plano transpilado a rz, sx, x, cx", C.accent3);
   s.addNotes("Los shots se simulan con un dispositivo de PennyLane con shots = S, como en el Lab 7 de k-NN. Con 37 clases cada raza recibe pocas cuentas, así que hacen falta más mediciones que con 7 clases. Entrenar en hardware sería carísimo; en simulación es un backward pass.");
