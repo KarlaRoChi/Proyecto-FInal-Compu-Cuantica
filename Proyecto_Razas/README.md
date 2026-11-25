@@ -73,11 +73,24 @@ Con *shots* finitos: exacto 0.624, `S = 100` 0.427, `S = 500` 0.574, `S = 2000` 
 ```
 .
 ├── Proyecto_Final_Razas_QML.ipynb   # Cuaderno con todo el código, explicaciones y resultados
+├── Anexo_A_dimension_ResNet50.ipynb # Anexo A: por qué vectores de 2 048 (contra 1 024 y 4 096)
+├── Anexo_B_numero_de_variables.ipynb # Anexo B: por qué d = 12 variables (barrido de d = 6 a 18)
 ├── README.md
 └── data/                            # Se genera solo (no se versiona)
     ├── oxford-iiit-pet/             # Fotos y anotaciones (descarga automática)
-    └── features.npz                 # Características de la ResNet-50 (2 048 por foto)
+    ├── features.npz                 # Características de la ResNet-50 (2 048 por foto)
+    └── features_anexoA.npz          # Vectores de 1 024, 2 048 y 4 096 del anexo A
 ```
+
+### Anexos
+
+- **Anexo A: ¿por qué 2 048?** Es el tamaño de la salida de `layer4` de la ResNet-50, no un número elegido a mano. Con la
+  misma red comparamos vectores de 1 024 (`layer3`), 2 048 y 4 096 (`layer4` con *pooling* promedio y máximo). En
+  validación, el QNN obtiene 0.362, **0.620** y 0.580 de F1 (tres semillas); 2 048 es el mejor y el más estable.
+- **Anexo B: ¿por qué 12 variables?** Con 6 qubits el circuito admite de 6 a 18 variables. Barrimos $d = 6, 8, \dots, 18$
+  con tres semillas: el F1 sube hasta $d = 12$ (0.620) y luego se aplana; 12, 14 y 18 quedan empatados dentro del ruido.
+  Elegimos 12 por la regla de una desviación estándar (el menor $d$ empatado con el mejor), porque es el más estable
+  entre semillas (± 0.006), tiene menos parámetros y es el caso simétrico $d = 2n$.
 
 ## Reproducibilidad
 

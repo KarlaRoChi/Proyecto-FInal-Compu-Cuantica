@@ -28,7 +28,7 @@ un MLP entrenado igual. No hay ventaja cuántica: un modelo lineal clásico con 
 
 | Carpeta | Qué contiene |
 |---|---|
-| [`Proyecto_Razas/`](Proyecto_Razas/) | **Proyecto principal**: cuaderno ejecutado con todo el código y los resultados, y su [README](Proyecto_Razas/README.md) detallado. |
+| [`Proyecto_Razas/`](Proyecto_Razas/) | **Proyecto principal**: cuaderno ejecutado con todo el código y los resultados, dos anexos (por qué 2 048 características y por qué 12 variables) y su [README](Proyecto_Razas/README.md) detallado. |
 | [`Presentacion/`](Presentacion/) | Diapositivas de la pre-entrega (`.pptx` y `.pdf`) y el script que las genera. |
 | [`Propuestas/`](Propuestas/) | Propuesta A (razas, la elegida), propuesta B (desenlaces en un refugio) y la propuesta anterior de perros contra gatos. |
 | [`Documentos_Curso/`](Documentos_Curso/) | Lineamientos del proyecto y de las presentaciones. |
